@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<CATALOG>
+          
+    
+    <FILE_ENTRY>
+                    
+        
+        <FILE_NAME>arquivo1.dat</FILE_NAME>
+                    
+        
+        <DIGEST_ENTRY>
+                              
+            
+            <DIGEST_TYPE>SHA256</DIGEST_TYPE>
+                              
+            
+            <DIGEST_HEX>bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb</DIGEST_HEX>
+                            
+        
+        </DIGEST_ENTRY>
+                  
+    
+    </FILE_ENTRY>
+          
+    
+    <FILE_ENTRY>
+                    
+        
+        <FILE_NAME>arquivo2.dat</FILE_NAME>
+                    
+        
+        <DIGEST_ENTRY>
+                              
+            
+            <DIGEST_TYPE>SHA256</DIGEST_TYPE>
+                              
+            
+            <DIGEST_HEX>aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa</DIGEST_HEX>
+                            
+        
+        </DIGEST_ENTRY>
+                  
+    
+    </FILE_ENTRY>
+        
+    
+    <FILE_ENTRY>
+                
+        <FILE_NAME>arquivo3.dat</FILE_NAME>
+                
+        <DIGEST_ENTRY>
+                        
+            <DIGEST_TYPE>SHA256</DIGEST_TYPE>
+                        
+            <DIGEST_HEX>2787acdd098bf5165288c010c5f810df22992b4dacbc4ab52cf933661f534631</DIGEST_HEX>
+                    
+        </DIGEST_ENTRY>
+            
+    </FILE_ENTRY>
+    
+    <FILE_ENTRY>
+        <FILE_NAME>arquivoColisao.dat</FILE_NAME>
+        <DIGEST_ENTRY>
+            <DIGEST_TYPE>SHA256</DIGEST_TYPE>
+            <DIGEST_HEX>b2ef8df9e0a2612447c93235a738e38e4c9439e13c06cf98831b71490a6f55e1</DIGEST_HEX>
+        </DIGEST_ENTRY>
+    </FILE_ENTRY>
+</CATALOG>
