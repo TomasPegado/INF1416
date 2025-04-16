@@ -1,68 +1,63 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <CATALOG>
-          
+                  
+    
+    
     
     <FILE_ENTRY>
-                    
+                                    
+        
+        
         
         <FILE_NAME>arquivo1.dat</FILE_NAME>
-                    
+                                    
+        
+        
         
         <DIGEST_ENTRY>
-                              
+                                                      
+            
+            
             
             <DIGEST_TYPE>SHA256</DIGEST_TYPE>
-                              
+                                                      
             
-            <DIGEST_HEX>bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb</DIGEST_HEX>
-                            
+            
+            
+            <DIGEST_HEX>e06554e64fd74a62255adefcc349a8d271e3797b5279a91c68bc0a3ff3d825b0861923a9c45bc26741e8536c84e5fc69a5ead249f0f375c941c0f84cd870cc3c</DIGEST_HEX>
+                                                    
+        
+        
         
         </DIGEST_ENTRY>
-                  
+                                  
+    
+    
     
     </FILE_ENTRY>
-          
-    
-    <FILE_ENTRY>
-                    
-        
-        <FILE_NAME>arquivo2.dat</FILE_NAME>
-                    
-        
-        <DIGEST_ENTRY>
-                              
-            
-            <DIGEST_TYPE>SHA256</DIGEST_TYPE>
-                              
-            
-            <DIGEST_HEX>aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa</DIGEST_HEX>
-                            
-        
-        </DIGEST_ENTRY>
                   
     
-    </FILE_ENTRY>
-        
     
+
     <FILE_ENTRY>
-                
         <FILE_NAME>arquivo3.dat</FILE_NAME>
-                
         <DIGEST_ENTRY>
-                        
-            <DIGEST_TYPE>SHA256</DIGEST_TYPE>
-                        
-            <DIGEST_HEX>2787acdd098bf5165288c010c5f810df22992b4dacbc4ab52cf933661f534631</DIGEST_HEX>
-                    
+            <DIGEST_TYPE>SHA512</DIGEST_TYPE>
+            <DIGEST_HEX>e06554e64fd74a62255adefcc349a8d271e3797b5279a91c68bc0a3ff3d825b0861923a9c45bc26741e8536c84e5fc69a5ead249f0f375c941c0f84cd870cc3c</DIGEST_HEX>
         </DIGEST_ENTRY>
-            
     </FILE_ENTRY>
-    
+    <FILE_ENTRY>
+        <FILE_NAME>arquivo2.dat</FILE_NAME>
+        <DIGEST_ENTRY>
+            <DIGEST_TYPE>SHA512</DIGEST_TYPE>
+            <DIGEST_HEX>a5ad3ddcb4eee78f013470c760497448e06628358c983157e005de46020882ab87644763631d5677570cc85ca64abc904a660a3b3c52a47c5f0a8c80146732ae</DIGEST_HEX>
+        </DIGEST_ENTRY>
+    </FILE_ENTRY>
     <FILE_ENTRY>
         <FILE_NAME>arquivoColisao.dat</FILE_NAME>
         <DIGEST_ENTRY>
-            <DIGEST_TYPE>SHA256</DIGEST_TYPE>
-            <DIGEST_HEX>b2ef8df9e0a2612447c93235a738e38e4c9439e13c06cf98831b71490a6f55e1</DIGEST_HEX>
+            <DIGEST_TYPE>SHA512</DIGEST_TYPE>
+            <DIGEST_HEX>223ff445dbd4c6fbdf722979e9a82f4b687ddf228a9ee849f744e7026996a89095868bcf24818bc9656c87f8c8727a2a45ea5739c64644902774de73a4b51c92</DIGEST_HEX>
         </DIGEST_ENTRY>
     </FILE_ENTRY>
 </CATALOG>
