@@ -143,23 +143,6 @@ public class DigestCalculator {
                 }
             }
 
-            // Verifica se a digest calculada colide com algum digest registrado de outro
-            // arquivo.
-            if (!status.equals("COLISION")) {
-                for (Map.Entry<String, Map<String, String>> entry : knownDigests.entrySet()) {
-                    String knownFileName = entry.getKey();
-                    if (!knownFileName.equals(fileName)) {
-                        Map<String, String> fileDigests = entry.getValue();
-                        if (fileDigests.containsKey(userDigestType)) {
-                            if (computedHex.equalsIgnoreCase(fileDigests.get(userDigestType).trim())) {
-                                status = "COLISION";
-                                break;
-                            }
-                        }
-                    }
-                }
-            }
-
             // Armazena o resultado final.
             results.add(new FileResult(fileName, computedHex, status));
         }
@@ -207,6 +190,7 @@ public class DigestCalculator {
                 Transformer transformer = transformerFactory.newTransformer();
                 // Para formatar a saída do XML
                 transformer.setOutputProperty(OutputKeys.INDENT, "yes");
+                transformer.setOutputProperty("{http://xml.apache.org/xslt}indent-amount", "4");
                 DOMSource source = new DOMSource(xmlDoc);
                 StreamResult resultFile = new StreamResult(xmlFile);
                 transformer.transform(source, resultFile);
