@@ -1,0 +1,13 @@
+/home/tomas/PUC/6_periodo/Seguranca/INF1416/T3/cofre-digital/src/main/java/br/com/cofredigital/config/SecurityConfig.java
+/home/tomas/PUC/6_periodo/Seguranca/INF1416/T3/cofre-digital/src/main/java/br/com/cofredigital/autenticacao/repositorio/UsuarioRepositorio.java
+/home/tomas/PUC/6_periodo/Seguranca/INF1416/T3/cofre-digital/src/main/java/br/com/cofredigital/autenticacao/dto/LoginRequest.java
+/home/tomas/PUC/6_periodo/Seguranca/INF1416/T3/cofre-digital/src/main/java/br/com/cofredigital/autenticacao/controller/AutenticacaoController.java
+/home/tomas/PUC/6_periodo/Seguranca/INF1416/T3/cofre-digital/src/main/java/br/com/cofredigital/util/exception/EmailJaExisteException.java
+/home/tomas/PUC/6_periodo/Seguranca/INF1416/T3/cofre-digital/src/main/java/br/com/cofredigital/App.java
+/home/tomas/PUC/6_periodo/Seguranca/INF1416/T3/cofre-digital/src/main/java/br/com/cofredigital/autenticacao/dto/CadastroRequest.java
+/home/tomas/PUC/6_periodo/Seguranca/INF1416/T3/cofre-digital/src/main/java/br/com/cofredigital/autenticacao/servico/UserDetailsServiceImpl.java
+/home/tomas/PUC/6_periodo/Seguranca/INF1416/T3/cofre-digital/src/main/java/br/com/cofredigital/autenticacao/modelo/Usuario.java
+/home/tomas/PUC/6_periodo/Seguranca/INF1416/T3/cofre-digital/src/main/java/br/com/cofredigital/autenticacao/dto/VerificarTotpRequest.java
+/home/tomas/PUC/6_periodo/Seguranca/INF1416/T3/cofre-digital/src/main/java/br/com/cofredigital/util/exception/UsuarioNaoEncontradoException.java
+/home/tomas/PUC/6_periodo/Seguranca/INF1416/T3/cofre-digital/src/main/java/br/com/cofredigital/autenticacao/servico/TecladoVirtualServico.java
+/home/tomas/PUC/6_periodo/Seguranca/INF1416/T3/cofre-digital/src/main/java/br/com/cofredigital/autenticacao/dto/TecladoVirtualResponse.java
