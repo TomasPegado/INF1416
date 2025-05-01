@@ -1,4 +1,6 @@
 /home/tomas/PUC/6_periodo/Seguranca/INF1416/T3/cofre-digital/src/main/java/br/com/cofredigital/config/SecurityConfig.java
+/home/tomas/PUC/6_periodo/Seguranca/INF1416/T3/cofre-digital/src/main/java/br/com/cofredigital/autenticacao/servico/UsuarioServico.java
+/home/tomas/PUC/6_periodo/Seguranca/INF1416/T3/cofre-digital/src/main/java/br/com/cofredigital/autenticacao/servico/TotpServico.java
 /home/tomas/PUC/6_periodo/Seguranca/INF1416/T3/cofre-digital/src/main/java/br/com/cofredigital/autenticacao/repositorio/UsuarioRepositorio.java
 /home/tomas/PUC/6_periodo/Seguranca/INF1416/T3/cofre-digital/src/main/java/br/com/cofredigital/autenticacao/dto/LoginRequest.java
 /home/tomas/PUC/6_periodo/Seguranca/INF1416/T3/cofre-digital/src/main/java/br/com/cofredigital/autenticacao/controller/AutenticacaoController.java

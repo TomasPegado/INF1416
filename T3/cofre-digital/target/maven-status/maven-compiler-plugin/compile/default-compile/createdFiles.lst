@@ -1,0 +1,15 @@
+br/com/cofredigital/App.class
+br/com/cofredigital/util/exception/EmailJaExisteException.class
+br/com/cofredigital/autenticacao/dto/VerificarTotpRequest.class
+br/com/cofredigital/autenticacao/servico/TecladoVirtualServico.class
+br/com/cofredigital/autenticacao/controller/AutenticacaoController.class
+br/com/cofredigital/autenticacao/dto/LoginRequest.class
+br/com/cofredigital/autenticacao/dto/TecladoVirtualResponse.class
+br/com/cofredigital/autenticacao/servico/TotpServico.class
+br/com/cofredigital/autenticacao/dto/CadastroRequest.class
+br/com/cofredigital/config/SecurityConfig.class
+br/com/cofredigital/autenticacao/servico/UsuarioServico.class
+br/com/cofredigital/util/exception/UsuarioNaoEncontradoException.class
+br/com/cofredigital/autenticacao/servico/UserDetailsServiceImpl.class
+br/com/cofredigital/autenticacao/repositorio/UsuarioRepositorio.class
+br/com/cofredigital/autenticacao/modelo/Usuario.class

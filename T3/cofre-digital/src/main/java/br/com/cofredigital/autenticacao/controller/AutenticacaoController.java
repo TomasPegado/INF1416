@@ -6,7 +6,7 @@ import br.com.cofredigital.autenticacao.dto.TecladoVirtualResponse;
 import br.com.cofredigital.autenticacao.dto.VerificarTotpRequest;
 import br.com.cofredigital.autenticacao.modelo.Usuario;
 import br.com.cofredigital.autenticacao.servico.TecladoVirtualServico;
-import br.com.cofredigital.autenticacao.servico.TOTPServico;
+import br.com.cofredigital.autenticacao.servico.TotpServico;
 import br.com.cofredigital.autenticacao.servico.UsuarioServico;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
