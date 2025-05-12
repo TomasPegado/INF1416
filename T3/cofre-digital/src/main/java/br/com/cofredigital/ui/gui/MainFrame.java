@@ -2,9 +2,12 @@ package br.com.cofredigital.ui.gui;
 
 import br.com.cofredigital.autenticacao.servico.TotpServico;
 import br.com.cofredigital.autenticacao.servico.UsuarioServico;
+import br.com.cofredigital.ui.gui.CadastroUsuarioPanel;
+import br.com.cofredigital.ui.gui.LoginPanel;
 
 import javax.swing.JFrame;
 import javax.swing.JPanel;
+import javax.swing.JOptionPane;
 // Import javax.swing.SwingUtilities; // Não diretamente necessário aqui, mas útil para updates de UI
 import java.awt.CardLayout;
 
@@ -18,6 +21,7 @@ public class MainFrame extends JFrame {
 
     // Constantes para os nomes dos painéis (telas)
     public static final String LOGIN_PANEL = "LoginPanel";
+    public static final String CADASTRO_PANEL = "CadastroUsuarioPanel";
     public static final String ADMIN_REGISTRATION_PANEL = "AdminRegistrationPanel";
     public static final String MAIN_MENU_PANEL = "MainMenuPanel";
     // Adicionar outras constantes conforme necessário (ex: VALIDATE_ADMIN_PASSPHRASE_PANEL)
@@ -27,27 +31,49 @@ public class MainFrame extends JFrame {
         this.totpServico = totpServico;
 
         setTitle("Cofre Digital");
-        setSize(800, 600); // Tamanho inicial, pode ser ajustado
-        setLocationRelativeTo(null); // Centralizar na tela
-        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE); // Encerrar aplicação ao fechar
+        setSize(500, 350);
+        setLocationRelativeTo(null);
+        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 
         initComponents();
-        determineInitialScreen();
+        showScreen(LOGIN_PANEL);
     }
 
     private void initComponents() {
-        // Configura o layout principal para alternar entre painéis (telas)
         cardLayout = new CardLayout();
         mainPanel = new JPanel(cardLayout);
-        
-        // TODO: Criar e adicionar os painéis específicos (telas) ao mainPanel
-        // Exemplo (quando AdminRegistrationPanel for criado):
-        // AdminRegistrationPanel adminRegPanel = new AdminRegistrationPanel(this, usuarioServico, totpServico);
-        // mainPanel.add(adminRegPanel, ADMIN_REGISTRATION_PANEL);
 
-        // Adicionar outros painéis (LoginPanel, MainMenuPanel, etc.)
+        // Painel de Login
+        LoginPanel loginPanel = new LoginPanel(usuarioServico) {
+            @Override
+            protected void onLoginSuccess() {
+                // Aqui você pode trocar para o painel principal do sistema, dashboard, etc.
+                JOptionPane.showMessageDialog(MainFrame.this, "Login realizado com sucesso!");
+            }
 
-        // Adiciona o painel principal ao frame
+            @Override
+            protected void onGoToCadastro() {
+                showScreen(CADASTRO_PANEL);
+            }
+        };
+
+        // Painel de Cadastro
+        CadastroUsuarioPanel cadastroPanel = new CadastroUsuarioPanel(usuarioServico) {
+            @Override
+            protected void onCadastroSuccess() {
+                JOptionPane.showMessageDialog(MainFrame.this, "Cadastro realizado! Faça login.");
+                showScreen(LOGIN_PANEL);
+            }
+
+            @Override
+            protected void onGoToLogin() {
+                showScreen(LOGIN_PANEL);
+            }
+        };
+
+        mainPanel.add(loginPanel, LOGIN_PANEL);
+        mainPanel.add(cadastroPanel, CADASTRO_PANEL);
+
         add(mainPanel);
     }
 
