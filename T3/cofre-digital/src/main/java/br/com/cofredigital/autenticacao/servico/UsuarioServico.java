@@ -1,73 +1,99 @@
 package br.com.cofredigital.autenticacao.servico;
 
 import br.com.cofredigital.autenticacao.modelo.Usuario;
-import br.com.cofredigital.autenticacao.repositorio.UsuarioRepositorio;
 import br.com.cofredigital.util.exception.EmailJaExisteException;
 import br.com.cofredigital.util.exception.UsuarioNaoEncontradoException;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.stereotype.Service;
-
+import br.com.cofredigital.crypto.PasswordUtil;
+import br.com.cofredigital.crypto.AESUtil;
+import javax.crypto.SecretKey;
+import java.nio.charset.StandardCharsets;
+import java.security.SecureRandom;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.Map;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.Base64;
 
-@Service
 public class UsuarioServico {
 
-    private final UsuarioRepositorio usuarioRepositorio;
-    private final PasswordEncoder passwordEncoder;
+    private final Map<Long, Usuario> usuariosMap = new ConcurrentHashMap<>();
+    private final Map<String, Long> emailParaIdMap = new ConcurrentHashMap<>();
+    private final AtomicLong proximoId = new AtomicLong(1);
+    
     private final TotpServico totpServico;
 
-    @Autowired
-    public UsuarioServico(UsuarioRepositorio usuarioRepositorio, PasswordEncoder passwordEncoder, TotpServico totpServico) {
-        this.usuarioRepositorio = usuarioRepositorio;
-        this.passwordEncoder = passwordEncoder;
+    public UsuarioServico(TotpServico totpServico) {
         this.totpServico = totpServico;
     }
 
-    public Usuario cadastrarUsuario(Usuario usuario) {
-        if (usuarioRepositorio.existsByEmail(usuario.getEmail())) {
+    public Usuario cadastrarUsuario(Usuario usuario, String senhaOriginal) throws Exception {
+        if (emailParaIdMap.containsKey(usuario.getEmail())) {
             throw new EmailJaExisteException(usuario.getEmail());
         }
         
-        // Criptografar a senha
-        usuario.setSenha(passwordEncoder.encode(usuario.getSenha()));
+        usuario.setSenha(PasswordUtil.hashPassword(senhaOriginal));
         
-        // Gerar chave secreta para TOTP
-        usuario.setChaveSecretaTotp(totpServico.gerarChaveSecreta());
+        String chaveSecretaTotpBase32 = totpServico.gerarChaveSecreta();
         
-        return usuarioRepositorio.save(usuario);
+        SecretKey chaveAES = AESUtil.generateAESKeyFromPassphrase(senhaOriginal, 256);
+        
+        byte[] chaveTotpCriptografadaBytes = AESUtil.encrypt(chaveSecretaTotpBase32.getBytes(StandardCharsets.UTF_8), chaveAES);
+        
+        usuario.setChaveSecretaTotp(Base64.getEncoder().encodeToString(chaveTotpCriptografadaBytes));
+        
+        long idGerado = proximoId.getAndIncrement();
+        usuario.setId(idGerado);
+        usuariosMap.put(idGerado, usuario);
+        emailParaIdMap.put(usuario.getEmail(), idGerado);
+        
+        return usuario;
     }
 
     public Usuario buscarPorId(Long id) {
-        return usuarioRepositorio.findById(id)
+        return Optional.ofNullable(usuariosMap.get(id))
                 .orElseThrow(() -> new UsuarioNaoEncontradoException(id));
     }
 
     public Usuario buscarPorEmail(String email) {
-        return usuarioRepositorio.findByEmail(email)
-                .orElseThrow(() -> new UsuarioNaoEncontradoException(email));
+        Long id = emailParaIdMap.get(email);
+        if (id == null) {
+            throw new UsuarioNaoEncontradoException(email);
+        }
+        return buscarPorId(id);
+    }
+    
+    public boolean existsByEmail(String email) {
+        return emailParaIdMap.containsKey(email);
     }
 
     public List<Usuario> listarTodos() {
-        return usuarioRepositorio.findAll();
+        return new ArrayList<>(usuariosMap.values());
     }
 
     public Usuario atualizar(Usuario usuario) {
-        // Verifica se o usuário existe
-        buscarPorId(usuario.getId());
+        Usuario existente = buscarPorId(usuario.getId());
+        if (!existente.getEmail().equals(usuario.getEmail()) && emailParaIdMap.containsKey(usuario.getEmail())){
+            throw new EmailJaExisteException("Email já cadastrado para outro usuário: " + usuario.getEmail());
+        }
         
-        return usuarioRepositorio.save(usuario);
+        if (!existente.getEmail().equals(usuario.getEmail())) {
+            emailParaIdMap.remove(existente.getEmail());
+            emailParaIdMap.put(usuario.getEmail(), usuario.getId());
+        }
+
+        usuariosMap.put(usuario.getId(), usuario);
+        return usuario;
     }
 
-    public void desativar(Long id) {
+    public void bloquearUsuario(Long id, int minutos) {
         Usuario usuario = buscarPorId(id);
-        usuario.setAtivo(false);
-        usuarioRepositorio.save(usuario);
+        usuario.bloquearAcessoPorMinutos(minutos);
     }
 
-    public void ativar(Long id) {
+    public void desbloquearUsuario(Long id) {
         Usuario usuario = buscarPorId(id);
-        usuario.setAtivo(true);
-        usuarioRepositorio.save(usuario);
+        usuario.desbloquearAcesso();
     }
 } 
