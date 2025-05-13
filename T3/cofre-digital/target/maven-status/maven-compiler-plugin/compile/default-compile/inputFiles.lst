@@ -8,6 +8,9 @@
 /home/tomas/PUC/6_periodo/Seguranca/INF1416/T3/cofre-digital/src/main/java/br/com/cofredigital/ui/gui/CadastroUsuarioPanel.java
 /home/tomas/PUC/6_periodo/Seguranca/INF1416/T3/cofre-digital/src/main/java/br/com/cofredigital/ui/gui/LoginPanel.java
 /home/tomas/PUC/6_periodo/Seguranca/INF1416/T3/cofre-digital/src/main/java/br/com/cofredigital/ui/gui/MainFrame.java
+/home/tomas/PUC/6_periodo/Seguranca/INF1416/T3/cofre-digital/src/main/java/br/com/cofredigital/ui/gui/TotpQrCodePanel.java
+/home/tomas/PUC/6_periodo/Seguranca/INF1416/T3/cofre-digital/src/main/java/br/com/cofredigital/ui/gui/TotpValidationPanel.java
 /home/tomas/PUC/6_periodo/Seguranca/INF1416/T3/cofre-digital/src/main/java/br/com/cofredigital/util/Base32.java
+/home/tomas/PUC/6_periodo/Seguranca/INF1416/T3/cofre-digital/src/main/java/br/com/cofredigital/util/QrCodeUtil.java
 /home/tomas/PUC/6_periodo/Seguranca/INF1416/T3/cofre-digital/src/main/java/br/com/cofredigital/util/exception/EmailJaExisteException.java
 /home/tomas/PUC/6_periodo/Seguranca/INF1416/T3/cofre-digital/src/main/java/br/com/cofredigital/util/exception/UsuarioNaoEncontradoException.java

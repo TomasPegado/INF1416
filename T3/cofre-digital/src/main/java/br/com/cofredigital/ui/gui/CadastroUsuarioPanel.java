@@ -76,6 +76,14 @@ public class CadastroUsuarioPanel extends JPanel {
         });
     }
 
+    public String getEmail() {
+        return emailField.getText().trim();
+    }
+
+    public String getSenha() {
+        return new String(senhaField.getPassword());
+    }
+
     // Callbacks para serem sobrescritos pelo MainFrame
     protected void onCadastroSuccess() {}
     protected void onGoToLogin() {}

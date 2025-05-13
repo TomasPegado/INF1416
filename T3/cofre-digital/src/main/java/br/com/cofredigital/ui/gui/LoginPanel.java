@@ -65,9 +65,8 @@ public class LoginPanel extends JPanel {
     protected void onLoginSuccess() {}
     protected void onGoToCadastro() {}
 
-//     public class PasswordUtil {
-//         public static boolean checkPassword(String plain, String hash) {
-//         // implementação...
-//     }
-// }
+    public String getEmail() {
+        return emailField.getText().trim();
+    }
+
 } 

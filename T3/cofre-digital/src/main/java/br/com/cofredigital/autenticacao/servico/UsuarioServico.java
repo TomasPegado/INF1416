@@ -96,4 +96,13 @@ public class UsuarioServico {
         Usuario usuario = buscarPorId(id);
         usuario.desbloquearAcesso();
     }
+
+    public String obterChaveTotpDescriptografada(Usuario usuario, String senha) throws Exception {
+        // Exemplo: descriptografa a chave TOTP usando a senha do usuário
+        // Ajuste conforme sua lógica real de criptografia
+        javax.crypto.SecretKey chaveAES = br.com.cofredigital.crypto.AESUtil.generateAESKeyFromPassphrase(senha, 256);
+        byte[] chaveTotpCriptografada = java.util.Base64.getDecoder().decode(usuario.getChaveSecretaTotp());
+        byte[] chaveTotpBytes = br.com.cofredigital.crypto.AESUtil.decrypt(chaveTotpCriptografada, chaveAES);
+        return new String(chaveTotpBytes, java.nio.charset.StandardCharsets.UTF_8);
+    }
 } 
