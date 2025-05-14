@@ -20,11 +20,11 @@
 - [x] Implementar sistema de autenticação por senha
 - [x] Implementar interface de autenticação por senha (já integrado ao painel de login)
 - [x] Integrar biblioteca TOTP para segunda etapa de autenticação
-- [ ] Implementar painel/interface de verificação TOTP
+- [x] Implementar painel/interface de verificação TOTP
 - [x] Desenvolver gerador de QR Code para configuração inicial do TOTP
-- [ ] Implementar interface de exibição do QR Code
+- [x] Implementar interface de exibição do QR Code
 - [x] Implementar integração dos dois fatores de autenticação (lógica backend)
-- [ ] Implementar integração dos dois fatores de autenticação (interface)
+- [x] Implementar integração dos dois fatores de autenticação (interface)
 
 ### 2.3 Teclado Virtual
 - [ ] Implementar lógica de teclas sobrecarregadas

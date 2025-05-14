@@ -15,8 +15,9 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.Base64;
+import br.com.cofredigital.tecladovirtual.TecladoVirtualAuthInput;
 
-public class UsuarioServico {
+public class UsuarioServico implements TecladoVirtualAuthInput {
 
     private final Map<Long, Usuario> usuariosMap = new ConcurrentHashMap<>();
     private final Map<String, Long> emailParaIdMap = new ConcurrentHashMap<>();
@@ -104,5 +105,21 @@ public class UsuarioServico {
         byte[] chaveTotpCriptografada = java.util.Base64.getDecoder().decode(usuario.getChaveSecretaTotp());
         byte[] chaveTotpBytes = br.com.cofredigital.crypto.AESUtil.decrypt(chaveTotpCriptografada, chaveAES);
         return new String(chaveTotpBytes, java.nio.charset.StandardCharsets.UTF_8);
+    }
+
+    @Override
+    public boolean autenticarComTecladoVirtual(String email, char[] senha) {
+        if (email == null || senha == null || senha.length == 0) return false;
+        Usuario usuario;
+        try {
+            usuario = buscarPorEmail(email);
+        } catch (Exception e) {
+            return false;
+        }
+        // Converte char[] para String apenas aqui, para compatibilidade com PasswordUtil
+        boolean ok = br.com.cofredigital.crypto.PasswordUtil.checkPassword(new String(senha), usuario.getSenha());
+        // Limpa o array de senha por segurança
+        java.util.Arrays.fill(senha, '\0');
+        return ok;
     }
 } 

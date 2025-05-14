@@ -5,9 +5,13 @@
 /home/tomas/PUC/6_periodo/Seguranca/INF1416/T3/cofre-digital/src/main/java/br/com/cofredigital/crypto/AESUtil.java
 /home/tomas/PUC/6_periodo/Seguranca/INF1416/T3/cofre-digital/src/main/java/br/com/cofredigital/crypto/PasswordUtil.java
 /home/tomas/PUC/6_periodo/Seguranca/INF1416/T3/cofre-digital/src/main/java/br/com/cofredigital/crypto/TOTP.java
+/home/tomas/PUC/6_periodo/Seguranca/INF1416/T3/cofre-digital/src/main/java/br/com/cofredigital/tecladovirtual/TecladoVirtualAuthInput.java
+/home/tomas/PUC/6_periodo/Seguranca/INF1416/T3/cofre-digital/src/main/java/br/com/cofredigital/tecladovirtual/TecladoVirtualInputHandler.java
+/home/tomas/PUC/6_periodo/Seguranca/INF1416/T3/cofre-digital/src/main/java/br/com/cofredigital/tecladovirtual/TecladoVirtualLogic.java
 /home/tomas/PUC/6_periodo/Seguranca/INF1416/T3/cofre-digital/src/main/java/br/com/cofredigital/ui/gui/CadastroUsuarioPanel.java
 /home/tomas/PUC/6_periodo/Seguranca/INF1416/T3/cofre-digital/src/main/java/br/com/cofredigital/ui/gui/LoginPanel.java
 /home/tomas/PUC/6_periodo/Seguranca/INF1416/T3/cofre-digital/src/main/java/br/com/cofredigital/ui/gui/MainFrame.java
+/home/tomas/PUC/6_periodo/Seguranca/INF1416/T3/cofre-digital/src/main/java/br/com/cofredigital/ui/gui/TecladoVirtualPanel.java
 /home/tomas/PUC/6_periodo/Seguranca/INF1416/T3/cofre-digital/src/main/java/br/com/cofredigital/ui/gui/TotpQrCodePanel.java
 /home/tomas/PUC/6_periodo/Seguranca/INF1416/T3/cofre-digital/src/main/java/br/com/cofredigital/ui/gui/TotpValidationPanel.java
 /home/tomas/PUC/6_periodo/Seguranca/INF1416/T3/cofre-digital/src/main/java/br/com/cofredigital/util/Base32.java
