@@ -69,4 +69,8 @@ public class LoginPanel extends JPanel {
         return emailField.getText().trim();
     }
 
+    public String getSenha() {
+        return new String(senhaField.getPassword());
+    }
+
 } 

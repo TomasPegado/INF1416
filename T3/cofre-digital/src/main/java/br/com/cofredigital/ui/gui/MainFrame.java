@@ -35,6 +35,7 @@ public class MainFrame extends JFrame {
     private Usuario usuarioEmCadastro;
     private String senhaEmCadastro;
     private Usuario usuarioEmLogin;
+    private String senhaEmLogin; // Adicionado para armazenar a senha original temporariamente
 
     public MainFrame(UsuarioServico usuarioServico, TotpServico totpServico) {
         this.usuarioServico = usuarioServico;
@@ -58,6 +59,7 @@ public class MainFrame extends JFrame {
             @Override
             protected void onLoginSuccess() {
                 usuarioEmLogin = usuarioServico.buscarPorEmail(getEmail());
+                senhaEmLogin = getSenha(); // Usa o método seguro
                 showScreen(TOTP_VALIDATION_PANEL);
             }
 
@@ -100,10 +102,23 @@ public class MainFrame extends JFrame {
                     setStatus("Usuário não encontrado.");
                     return;
                 }
-                try {
+                if (senhaEmLogin == null) {
                     setStatus("Fluxo de login: senha original não disponível para descriptografar TOTP.");
+                    return;
+                }
+                try {
+                    String chaveSecreta = usuarioServico.obterChaveTotpDescriptografada(usuarioEmLogin, senhaEmLogin);
+                    boolean valido = totpServico.validarCodigo(chaveSecreta, codigo);
+                    if (valido) {
+                        setStatus("TOTP válido! Login completo.");
+                        // Aqui pode seguir para a próxima tela do sistema
+                    } else {
+                        setStatus("Código TOTP inválido.");
+                    }
                 } catch (Exception ex) {
                     setStatus("Erro ao validar TOTP: " + ex.getMessage());
+                } finally {
+                    senhaEmLogin = null; // Limpa a senha da memória após uso
                 }
             }
 
