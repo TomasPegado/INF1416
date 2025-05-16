@@ -27,12 +27,12 @@
 - [x] Implementar integração dos dois fatores de autenticação (interface)
 
 ### 2.3 Teclado Virtual
-- [ ] Implementar lógica de teclas sobrecarregadas
-- [ ] Implementar painel Swing do teclado virtual (JPanel customizado)
-- [ ] Integrar teclado virtual com tela de autenticação (backend)
-- [ ] Integrar teclado virtual com tela de autenticação (interface)
-- [ ] Adicionar medidas anti-keylogger (backend)
-- [ ] Adicionar medidas anti-keylogger (interface)
+- [x] Implementar lógica de teclas sobrecarregadas
+- [x] Implementar painel Swing do teclado virtual (JPanel customizado)
+- [x] Integrar teclado virtual com tela de autenticação (backend)
+- [x] Integrar teclado virtual com tela de autenticação (interface)
+- [x] Adicionar medidas anti-keylogger (backend)
+- [x] Adicionar medidas anti-keylogger (interface)
 
 ## 3. Módulo de Armazenamento Seguro
 
