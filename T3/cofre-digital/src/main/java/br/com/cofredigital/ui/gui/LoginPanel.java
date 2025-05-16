@@ -29,10 +29,7 @@ public class LoginPanel extends JPanel {
         gbc.gridx = 1; gbc.gridy = 0; gbc.anchor = GridBagConstraints.WEST;
         add(emailField, gbc);
         gbc.gridy++;
-        tecladoVirtualPanel = new TecladoVirtualPanel(
-            Arrays.asList('0','1','2','3','4','5','6','7','8','9','a','b','c','d','e','f'),
-            null
-        );
+        tecladoVirtualPanel = new TecladoVirtualPanel(null);
         add(tecladoVirtualPanel, gbc);
 
         gbc.gridx = 0; gbc.gridy++; gbc.gridwidth = 2; gbc.anchor = GridBagConstraints.CENTER;
