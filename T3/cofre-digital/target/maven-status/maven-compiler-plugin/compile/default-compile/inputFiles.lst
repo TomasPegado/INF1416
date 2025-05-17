@@ -3,7 +3,9 @@ C:\Users\Gabi\git-si\INF1416\T3\cofre-digital\src\main\java\br\com\cofredigital\
 C:\Users\Gabi\git-si\INF1416\T3\cofre-digital\src\main\java\br\com\cofredigital\autenticacao\servico\UsuarioServico.java
 C:\Users\Gabi\git-si\INF1416\T3\cofre-digital\src\main\java\br\com\cofredigital\CofreDigitalApp.java
 C:\Users\Gabi\git-si\INF1416\T3\cofre-digital\src\main\java\br\com\cofredigital\crypto\AESUtil.java
+C:\Users\Gabi\git-si\INF1416\T3\cofre-digital\src\main\java\br\com\cofredigital\crypto\CertificateUtil.java
 C:\Users\Gabi\git-si\INF1416\T3\cofre-digital\src\main\java\br\com\cofredigital\crypto\PasswordUtil.java
+C:\Users\Gabi\git-si\INF1416\T3\cofre-digital\src\main\java\br\com\cofredigital\crypto\PrivateKeyUtil.java
 C:\Users\Gabi\git-si\INF1416\T3\cofre-digital\src\main\java\br\com\cofredigital\crypto\TOTP.java
 C:\Users\Gabi\git-si\INF1416\T3\cofre-digital\src\main\java\br\com\cofredigital\tecladovirtual\TecladoVirtualAuthInput.java
 C:\Users\Gabi\git-si\INF1416\T3\cofre-digital\src\main\java\br\com\cofredigital\tecladovirtual\TecladoVirtualInputHandler.java
