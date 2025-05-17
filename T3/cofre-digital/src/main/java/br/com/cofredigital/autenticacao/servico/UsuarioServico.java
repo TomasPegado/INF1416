@@ -7,7 +7,6 @@ import br.com.cofredigital.crypto.PasswordUtil;
 import br.com.cofredigital.crypto.AESUtil;
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
-import java.security.SecureRandom;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -15,15 +14,16 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.Base64;
-import br.com.cofredigital.tecladovirtual.TecladoVirtualAuthInput;
 
-public class UsuarioServico implements TecladoVirtualAuthInput {
+public class UsuarioServico {
 
     private final Map<Long, Usuario> usuariosMap = new ConcurrentHashMap<>();
     private final Map<String, Long> emailParaIdMap = new ConcurrentHashMap<>();
     private final AtomicLong proximoId = new AtomicLong(1);
     
     private final TotpServico totpServico;
+    private static final int MAX_TENTATIVAS_SENHA = 3;
+    private static final int MINUTOS_BLOQUEIO_SENHA = 2;
 
     public UsuarioServico(TotpServico totpServico) {
         this.totpServico = totpServico;
@@ -60,7 +60,7 @@ public class UsuarioServico implements TecladoVirtualAuthInput {
     public Usuario buscarPorEmail(String email) {
         Long id = emailParaIdMap.get(email);
         if (id == null) {
-            throw new UsuarioNaoEncontradoException(email);
+            return null;
         }
         return buscarPorId(id);
     }
@@ -98,28 +98,98 @@ public class UsuarioServico implements TecladoVirtualAuthInput {
         usuario.desbloquearAcesso();
     }
 
-    public String obterChaveTotpDescriptografada(Usuario usuario, String senha) throws Exception {
-        // Exemplo: descriptografa a chave TOTP usando a senha do usuário
-        // Ajuste conforme sua lógica real de criptografia
-        javax.crypto.SecretKey chaveAES = br.com.cofredigital.crypto.AESUtil.generateAESKeyFromPassphrase(senha, 256);
-        byte[] chaveTotpCriptografada = java.util.Base64.getDecoder().decode(usuario.getChaveSecretaTotp());
-        byte[] chaveTotpBytes = br.com.cofredigital.crypto.AESUtil.decrypt(chaveTotpCriptografada, chaveAES);
-        return new String(chaveTotpBytes, java.nio.charset.StandardCharsets.UTF_8);
+    public String obterChaveTotpDescriptografada(Usuario usuario, String senhaCandidata) throws Exception {
+        SecretKey chaveAES = AESUtil.generateAESKeyFromPassphrase(senhaCandidata, 256);
+        byte[] chaveTotpCriptografada = Base64.getDecoder().decode(usuario.getChaveSecretaTotp());
+        byte[] chaveTotpBytes = AESUtil.decrypt(chaveTotpCriptografada, chaveAES);
+        return new String(chaveTotpBytes, StandardCharsets.UTF_8);
     }
 
-    @Override
-    public boolean autenticarComTecladoVirtual(String email, char[] senha) {
-        if (email == null || senha == null || senha.length == 0) return false;
-        Usuario usuario;
-        try {
-            usuario = buscarPorEmail(email);
-        } catch (Exception e) {
-            return false;
+    /**
+     * Autentica um usuário usando a sequência de pares de dígitos do teclado virtual.
+     * Gera todas as combinações de senha possíveis a partir dos pares e verifica cada uma
+     * contra o hash da senha armazenada do usuário.
+     *
+     * @param email O email do usuário.
+     * @param sequenciaPares A lista de pares de caracteres selecionados no teclado virtual.
+     * @return Um Optional contendo a senha em texto plano que foi validada se a autenticação
+     *         for bem-sucedida, ou Optional.empty() caso contrário.
+     * @throws Exception para outros erros.
+     */
+    public Optional<String> autenticarComTecladoVirtual(String email, List<Character[]> sequenciaPares) throws Exception {
+        if (email == null || email.trim().isEmpty() || sequenciaPares == null || sequenciaPares.isEmpty()) {
+            return Optional.empty();
         }
-        // Converte char[] para String apenas aqui, para compatibilidade com PasswordUtil
-        boolean ok = br.com.cofredigital.crypto.PasswordUtil.checkPassword(new String(senha), usuario.getSenha());
-        // Limpa o array de senha por segurança
-        java.util.Arrays.fill(senha, '\0');
-        return ok;
+
+        Usuario usuario = buscarPorEmail(email);
+        if (usuario == null) {
+             return Optional.empty(); 
+        }
+
+        if (usuario.isAcessoBloqueado()) {
+            System.err.println("Tentativa de login para usuário bloqueado: " + email + ". Bloqueado até: " + usuario.getBloqueadoAte());
+            return Optional.empty(); 
+        }
+
+        String senhaHash = usuario.getSenha(); 
+        if (senhaHash == null || senhaHash.isEmpty()) {
+            System.err.println("Usuário não possui hash de senha configurado: " + email);
+            return Optional.empty(); 
+        }
+
+        if (sequenciaPares.size() < 8 || sequenciaPares.size() > 10) { 
+             System.err.println("Tentativa de login com comprimento de senha inválido: " + sequenciaPares.size() + " para usuário " + email);
+             return Optional.empty();
+        }
+
+        String senhaAutenticada = verificarCombinacoesDePares(new StringBuilder(), sequenciaPares, 0, senhaHash);
+
+        if (senhaAutenticada != null) {
+            usuario.resetarContadoresDeFalha();
+            usuario.incrementarTotalAcessos(); 
+            if(usuario.isAcessoBloqueado()) usuario.desbloquearAcesso(); 
+            atualizar(usuario); 
+            return Optional.of(senhaAutenticada);
+        } else {
+            usuario.registrarFalhaSenha();
+            if (usuario.getTentativasFalhasSenha() >= MAX_TENTATIVAS_SENHA) {
+                usuario.bloquearAcessoPorMinutos(MINUTOS_BLOQUEIO_SENHA);
+                System.err.println("Usuário bloqueado por " + MINUTOS_BLOQUEIO_SENHA + " minutos devido a " + usuario.getTentativasFalhasSenha() + " tentativas de senha: " + email);
+            }
+            atualizar(usuario); 
+            return Optional.empty();
+        }
+    }
+
+    private String verificarCombinacoesDePares(StringBuilder senhaCandidataAtual, 
+                                                List<Character[]> sequenciaPares, 
+                                                int indiceParAtual, 
+                                                String senhaHash) {
+        if (indiceParAtual == sequenciaPares.size()) {
+            String candidataFinal = senhaCandidataAtual.toString();
+            if (PasswordUtil.checkPassword(candidataFinal, senhaHash)) {
+                return candidataFinal;
+            }
+            return null;
+        }
+
+        Character[] par = sequenciaPares.get(indiceParAtual);
+        String resultado;
+
+        senhaCandidataAtual.append(par[0]);
+        resultado = verificarCombinacoesDePares(senhaCandidataAtual, sequenciaPares, indiceParAtual + 1, senhaHash);
+        if (resultado != null) {
+            return resultado;
+        }
+        senhaCandidataAtual.deleteCharAt(senhaCandidataAtual.length() - 1);
+
+        senhaCandidataAtual.append(par[1]);
+        resultado = verificarCombinacoesDePares(senhaCandidataAtual, sequenciaPares, indiceParAtual + 1, senhaHash);
+        if (resultado != null) {
+            return resultado;
+        }
+        senhaCandidataAtual.deleteCharAt(senhaCandidataAtual.length() - 1);
+
+        return null;
     }
 } 

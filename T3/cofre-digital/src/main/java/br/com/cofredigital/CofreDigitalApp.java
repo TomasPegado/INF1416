@@ -2,25 +2,24 @@ package br.com.cofredigital;
 
 import br.com.cofredigital.autenticacao.servico.TotpServico;
 import br.com.cofredigital.autenticacao.servico.UsuarioServico;
-
-import javax.swing.SwingUtilities; // Para iniciar a GUI na thread correta
-import br.com.cofredigital.ui.gui.MainFrame; // Nossa futura janela principal
+import br.com.cofredigital.ui.gui.MainFrame;
+import javax.swing.SwingUtilities;
 
 public class CofreDigitalApp {
 
-    private static UsuarioServico usuarioServico;
-    private static TotpServico totpServico;
-
     public static void main(String[] args) {
-        // Inicializar serviços
-        totpServico = new TotpServico();
-        usuarioServico = new UsuarioServico(totpServico); // UsuarioServico depende de TotpServico
+        // 1. Inicializar os serviços necessários
+        TotpServico totpServico = new TotpServico();
+        UsuarioServico usuarioServico = new UsuarioServico(totpServico);
 
-        // Iniciar a Interface Gráfica (GUI) na Event Dispatch Thread (EDT)
-        SwingUtilities.invokeLater(() -> {
-            // Cria e exibe a janela principal, passando os serviços necessários
-            MainFrame mainFrame = new MainFrame(usuarioServico, totpServico);
-            mainFrame.setVisible(true);
+        // 2. Garantir que a UI seja criada e atualizada no Event Dispatch Thread (EDT)
+        // Isso é uma boa prática para aplicações Swing para evitar problemas de concorrência.
+        SwingUtilities.invokeLater(new Runnable() {
+            public void run() {
+                // 3. Criar e exibir o MainFrame
+                MainFrame mainFrame = new MainFrame(usuarioServico, totpServico);
+                mainFrame.setVisible(true);
+            }
         });
     }
 

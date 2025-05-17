@@ -57,9 +57,18 @@ public class MainFrame extends JFrame {
         // Painel de Login
         LoginPanel loginPanel = new LoginPanel(usuarioServico) {
             @Override
-            protected void onLoginSuccess() {
-                usuarioEmLogin = usuarioServico.buscarPorEmail(getEmail());
-                senhaEmLogin = getSenha(); // Usa o método seguro
+            protected void onLoginSuccess(String email, String senhaPlanaVerificada) {
+                MainFrame.this.usuarioEmLogin = usuarioServico.buscarPorEmail(email);
+                MainFrame.this.senhaEmLogin = senhaPlanaVerificada;
+                
+                if (MainFrame.this.usuarioEmLogin == null) {
+                    JOptionPane.showMessageDialog(MainFrame.this, 
+                                                "Erro crítico: Usuário não encontrado após login bem-sucedido.", 
+                                                "Erro de Login", JOptionPane.ERROR_MESSAGE);
+                    showScreen(LOGIN_PANEL);
+                    return;
+                }
+
                 showScreen(TOTP_VALIDATION_PANEL);
             }
 
@@ -73,10 +82,17 @@ public class MainFrame extends JFrame {
         CadastroUsuarioPanel cadastroPanel = new CadastroUsuarioPanel(usuarioServico) {
             @Override
             protected void onCadastroSuccess() {
-                usuarioEmCadastro = usuarioServico.buscarPorEmail(getEmail());
-                senhaEmCadastro = getSenha();
-                showTotpQrCodePanel(usuarioEmCadastro, senhaEmCadastro);
-                senhaEmCadastro = null;
+                MainFrame.this.usuarioEmCadastro = usuarioServico.buscarPorEmail(getEmail());
+                MainFrame.this.senhaEmCadastro = getSenha();
+                if (MainFrame.this.usuarioEmCadastro != null && MainFrame.this.senhaEmCadastro != null) {
+                    showTotpQrCodePanel(MainFrame.this.usuarioEmCadastro, MainFrame.this.senhaEmCadastro);
+                } else {
+                     JOptionPane.showMessageDialog(MainFrame.this, 
+                                                "Erro ao obter dados para cadastro do TOTP.", 
+                                                "Erro de Cadastro", JOptionPane.ERROR_MESSAGE);
+                     showScreen(CADASTRO_PANEL);
+                }
+                MainFrame.this.senhaEmCadastro = null;
             }
 
             @Override
@@ -98,32 +114,38 @@ public class MainFrame extends JFrame {
             @Override
             protected void onTotpValidated() {
                 String codigo = getCodigoTotp();
-                if (usuarioEmLogin == null) {
-                    setStatus("Usuário não encontrado.");
+                if (MainFrame.this.usuarioEmLogin == null) {
+                    setStatus("Erro interno: Usuário não definido para validação TOTP.");
                     return;
                 }
-                if (senhaEmLogin == null) {
-                    setStatus("Fluxo de login: senha original não disponível para descriptografar TOTP.");
+                if (MainFrame.this.senhaEmLogin == null) {
+                    setStatus("Erro interno: Senha original não disponível para descriptografar TOTP.");
                     return;
                 }
                 try {
-                    String chaveSecreta = usuarioServico.obterChaveTotpDescriptografada(usuarioEmLogin, senhaEmLogin);
+                    String chaveSecreta = usuarioServico.obterChaveTotpDescriptografada(MainFrame.this.usuarioEmLogin, MainFrame.this.senhaEmLogin);
                     boolean valido = totpServico.validarCodigo(chaveSecreta, codigo);
                     if (valido) {
                         setStatus("TOTP válido! Login completo.");
-                        // Aqui pode seguir para a próxima tela do sistema
+                        // TODO: Navegar para a tela principal da aplicação pós-login
+                        // JOptionPane.showMessageDialog(MainFrame.this, "Login totalmente concluído!");
+                        // showScreen(MAIN_APP_PANEL); // Exemplo
                     } else {
                         setStatus("Código TOTP inválido.");
+                        // TODO: Implementar lógica de tentativas de TOTP e bloqueio se necessário
                     }
                 } catch (Exception ex) {
                     setStatus("Erro ao validar TOTP: " + ex.getMessage());
+                    ex.printStackTrace();
                 } finally {
-                    senhaEmLogin = null; // Limpa a senha da memória após uso
+                    MainFrame.this.senhaEmLogin = null;
                 }
             }
 
             @Override
             protected void onBack() {
+                MainFrame.this.usuarioEmLogin = null;
+                MainFrame.this.senhaEmLogin = null;
                 showScreen(LOGIN_PANEL);
             }
         };
