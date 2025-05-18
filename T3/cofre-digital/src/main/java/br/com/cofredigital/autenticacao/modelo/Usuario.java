@@ -26,8 +26,9 @@ public class Usuario {
     private LocalDateTime bloqueadoAte;
 
     private String grupo;
-    private Long kid;
+    private Integer kid;
     private int totalAcessos = 0;
+    private boolean contaAtiva = true;
 
     private LocalDateTime dataCriacao = LocalDateTime.now();
     private LocalDateTime ultimoAcesso;
@@ -60,5 +61,13 @@ public class Usuario {
     
     public void incrementarTotalAcessos() {
         this.totalAcessos++;
+    }
+
+    public Integer getKid() {
+        return kid;
+    }
+
+    public void setKid(Integer kid) {
+        this.kid = kid;
     }
 } 

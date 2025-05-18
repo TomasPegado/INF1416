@@ -344,4 +344,51 @@ public final class PrivateKeyUtil {
         }
         return null;
     }
+
+    /**
+     * Carrega uma chave privada PKCS#8 a partir de bytes criptografados com AES/ECB/PKCS5Padding.
+     * A chave AES para decriptografia é derivada da frase secreta.
+     *
+     * @param encryptedPkcs8Bytes Os bytes da chave privada criptografada.
+     * @param passphrase A frase secreta para derivar a chave AES de decriptografia.
+     * @return Um objeto PrivateKey, ou null se o carregamento falhar.
+     */
+    public static PrivateKey loadEncryptedPKCS8PrivateKeyFromBytes(byte[] encryptedPkcs8Bytes, String passphrase) {
+        if (encryptedPkcs8Bytes == null || encryptedPkcs8Bytes.length == 0) {
+            System.err.println("Bytes da chave privada criptografada não podem ser nulos ou vazios.");
+            return null;
+        }
+        if (passphrase == null || passphrase.trim().isEmpty()) {
+            System.err.println("Frase secreta não pode ser nula ou vazia para decriptografar a chave privada.");
+            return null;
+        }
+
+        try {
+            SecretKey aesKey = AESUtil.generateKeyFromSecret(passphrase, 256);
+            byte[] decryptedPkcs8Bytes = AESUtil.decrypt(encryptedPkcs8Bytes, aesKey);
+            PKCS8EncodedKeySpec keySpec = new PKCS8EncodedKeySpec(decryptedPkcs8Bytes);
+            
+            KeyFactory keyFactory;
+            try {
+                keyFactory = KeyFactory.getInstance("RSA", "BC");
+            } catch (NoSuchAlgorithmException | NoSuchProviderException eRSA) {
+                try {
+                    keyFactory = KeyFactory.getInstance("EC", "BC");
+                } catch (NoSuchAlgorithmException | NoSuchProviderException eEC) {
+                    try {
+                        keyFactory = KeyFactory.getInstance("DSA", "BC");
+                    } catch (NoSuchAlgorithmException | NoSuchProviderException eDSA) {
+                        System.err.println("Não foi possível obter KeyFactory para RSA, EC ou DSA com provedor BC.");
+                        throw eDSA; 
+                    }
+                }
+            }
+            return keyFactory.generatePrivate(keySpec);
+        } catch (InvalidKeySpecException e) {
+            System.err.println("Especificação de chave inválida (PKCS8) para a chave privada decriptografada: " + e.getMessage());
+        } catch (Exception e) { 
+            System.err.println("Erro ao carregar/decriptografar a chave privada PKCS#8 a partir de bytes (verifique frase secreta, formato dos bytes): " + e.getMessage());
+        }
+        return null;
+    }
 } 

@@ -7,6 +7,15 @@ import br.com.cofredigital.crypto.PasswordUtil;
 import br.com.cofredigital.crypto.AESUtil;
 import br.com.cofredigital.crypto.CertificateUtil;
 import br.com.cofredigital.crypto.PrivateKeyUtil;
+import br.com.cofredigital.persistencia.dao.UsuarioDAO;
+import br.com.cofredigital.persistencia.dao.UsuarioDAOImpl;
+import br.com.cofredigital.persistencia.dao.GrupoDAO;
+import br.com.cofredigital.persistencia.dao.GrupoDAOImpl;
+import br.com.cofredigital.persistencia.dao.ChaveiroDAO;
+import br.com.cofredigital.persistencia.dao.ChaveiroDAOImpl;
+import br.com.cofredigital.persistencia.modelo.Chaveiro;
+import br.com.cofredigital.persistencia.modelo.Grupo;
+
 import javax.crypto.SecretKey;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -16,118 +25,112 @@ import java.security.PrivateKey;
 import java.security.PublicKey;
 import java.security.cert.X509Certificate;
 import java.security.cert.CertificateException;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.Map;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.Base64;
+import java.sql.SQLException;
 
 public class UsuarioServico {
 
-    private final Map<Long, Usuario> usuariosMap = new ConcurrentHashMap<>();
-    private final Map<String, Long> emailParaIdMap = new ConcurrentHashMap<>();
-    private final AtomicLong proximoId = new AtomicLong(1);
-    
+    private final UsuarioDAO usuarioDAO;
+    private final GrupoDAO grupoDAO;
+    private final ChaveiroDAO chaveiroDAO;
     private final TotpServico totpServico;
-    private static final int MAX_TENTATIVAS_SENHA = 3;
-    private static final int MINUTOS_BLOQUEIO_SENHA = 2;
+    private static final int MAX_TENTATIVAS_SENHA = 3; // Exemplo, ajuste conforme necessário
+    private static final int MINUTOS_BLOQUEIO_SENHA = 2; // Exemplo
 
-    // Campos para gerenciamento da primeira execução e frase secreta do admin
-    private String adminPassphraseSession = null; // Armazena a frase secreta do admin para a sessão atual
-    // A lógica de 'primeira execução' será determinada pela ausência de um admin.
-
-    // Simulação da tabela Chaveiro (KID que é o Long ID do usuário -> DadosChaveiro)
-    private static class DadosChaveiro {
-        Long kid; // Agora é Long, correspondendo ao ID do usuário
-        String certificadoPem;
-        byte[] chavePrivadaCriptografadaOriginal;
-
-        public DadosChaveiro(Long kid, String certificadoPem, byte[] chavePrivadaCriptografadaOriginal) {
-            this.kid = kid;
-            this.certificadoPem = certificadoPem;
-            this.chavePrivadaCriptografadaOriginal = chavePrivadaCriptografadaOriginal;
-        }
-    }
-    private final Map<Long, DadosChaveiro> chaveiroMap = new ConcurrentHashMap<>(); // Chave do Map agora é Long
+    private String adminPassphraseSession = null;
 
     public UsuarioServico(TotpServico totpServico) {
         this.totpServico = totpServico;
+        this.usuarioDAO = new UsuarioDAOImpl();
+        this.grupoDAO = new GrupoDAOImpl();
+        this.chaveiroDAO = new ChaveiroDAOImpl();
     }
 
-    public Usuario cadastrarUsuario(Usuario usuario, String senhaOriginal) throws Exception {
-        if (emailParaIdMap.containsKey(usuario.getEmail())) {
+    public Usuario cadastrarUsuario(Usuario usuario, String senhaOriginal, String nomeGrupo) throws Exception {
+        if (usuarioDAO.emailExiste(usuario.getEmail())) {
             throw new EmailJaExisteException(usuario.getEmail());
         }
         
         usuario.setSenha(PasswordUtil.hashPassword(senhaOriginal));
         
         String chaveSecretaTotpBase32 = totpServico.gerarChaveSecreta();
-        
         SecretKey chaveAES = AESUtil.generateKeyFromSecret(senhaOriginal, 256);
-        
         byte[] chaveTotpCriptografadaBytes = AESUtil.encrypt(chaveSecretaTotpBase32.getBytes(StandardCharsets.UTF_8), chaveAES);
-        
         usuario.setChaveSecretaTotp(Base64.getEncoder().encodeToString(chaveTotpCriptografadaBytes));
         
-        long idGerado = proximoId.getAndIncrement();
-        usuario.setId(idGerado);
-        usuario.setKid(idGerado); // KID é o mesmo que o ID do usuário (Long)
+        Optional<Grupo> grupoOpt = grupoDAO.buscarPorNome(nomeGrupo);
+        if (grupoOpt.isEmpty()) {
+            throw new Exception("Grupo '" + nomeGrupo + "' não encontrado no banco de dados.");
+        }
+        int gid = grupoOpt.get().getGid();
 
-        usuariosMap.put(idGerado, usuario);
-        emailParaIdMap.put(usuario.getEmail(), idGerado);
-        
-        System.out.println("[UsuarioServico] Usuário cadastrado: " + usuario.getEmail() + " com chave TOTP: " + chaveSecretaTotpBase32 + " e KID: " + usuario.getKid());
-        // TODO: Para usuários normais, também precisaria armazenar cert/chave no chaveiroMap se aplicável e se eles tiverem cert/chaves próprios.
-        // Se o usuário normal não tiver certificado/chave própria no cadastro inicial, o chaveiroMap só se aplicaria ao admin inicialmente.
-        return usuario;
+        Usuario usuarioSalvo = usuarioDAO.salvar(usuario, gid);
+        // O UID do usuário é definido pelo banco. O KID será associado ao salvar o Chaveiro, se aplicável.
+
+        System.out.println("[UsuarioServico] Usuário pré-cadastrado no BD: " + usuarioSalvo.getEmail() + " com UID: " + usuarioSalvo.getId() + " e chave TOTP (plana): " + chaveSecretaTotpBase32);
+        return usuarioSalvo;
     }
 
     public Usuario buscarPorId(Long id) {
-        return Optional.ofNullable(usuariosMap.get(id))
+        try {
+            return usuarioDAO.buscarPorId(id)
                 .orElseThrow(() -> new UsuarioNaoEncontradoException(id));
+        } catch (SQLException e) {
+            throw new RuntimeException("Erro de banco de dados ao buscar usuário por ID: " + id, e);
+        }
     }
 
     public Usuario buscarPorEmail(String email) {
-        Long id = emailParaIdMap.get(email);
-        if (id == null) {
-            return null;
+        try {
+            return usuarioDAO.buscarPorEmail(email).orElse(null);
+        } catch (SQLException e) {
+            throw new RuntimeException("Erro de banco de dados ao buscar usuário por email: " + email, e);
         }
-        return buscarPorId(id);
     }
     
     public boolean existsByEmail(String email) {
-        return emailParaIdMap.containsKey(email);
+        try {
+            return usuarioDAO.emailExiste(email);
+        } catch (SQLException e) {
+            throw new RuntimeException("Erro de banco de dados ao verificar existência de email: " + email, e);
+        }
     }
 
     public List<Usuario> listarTodos() {
-        return new ArrayList<>(usuariosMap.values());
+        try {
+            return usuarioDAO.listarTodos();
+        } catch (SQLException e) {
+            throw new RuntimeException("Erro de banco de dados ao listar todos os usuários.", e);
+        }
     }
 
     public Usuario atualizar(Usuario usuario) {
-        Usuario existente = buscarPorId(usuario.getId());
-        if (!existente.getEmail().equals(usuario.getEmail()) && emailParaIdMap.containsKey(usuario.getEmail())){
-            throw new EmailJaExisteException("Email já cadastrado para outro usuário: " + usuario.getEmail());
+        try {
+            Usuario usuarioAntes = buscarPorId(usuario.getId()); // Garante que o usuário existe
+            if (!usuarioAntes.getEmail().equals(usuario.getEmail()) && existsByEmail(usuario.getEmail())) {
+                 throw new EmailJaExisteException("Email já cadastrado para outro usuário: " + usuario.getEmail());
+            }
+            usuarioDAO.atualizar(usuario);
+            return usuario; 
+        } catch (SQLException e) {
+            throw new RuntimeException("Erro de banco de dados ao atualizar usuário: " + usuario.getEmail(), e);
+        } catch (UsuarioNaoEncontradoException e) { 
+            throw e;
         }
-        
-        if (!existente.getEmail().equals(usuario.getEmail())) {
-            emailParaIdMap.remove(existente.getEmail());
-            emailParaIdMap.put(usuario.getEmail(), usuario.getId());
-        }
-
-        usuariosMap.put(usuario.getId(), usuario);
-        return usuario;
     }
-
+    
     public void bloquearUsuario(Long id, int minutos) {
-        Usuario usuario = buscarPorId(id);
+        Usuario usuario = buscarPorId(id); // Lança exceção se não encontrado
         usuario.bloquearAcessoPorMinutos(minutos);
+        atualizar(usuario); // Persiste a alteração
     }
 
     public void desbloquearUsuario(Long id) {
-        Usuario usuario = buscarPorId(id);
+        Usuario usuario = buscarPorId(id); // Lança exceção se não encontrado
         usuario.desbloquearAcesso();
+        atualizar(usuario); // Persiste a alteração
     }
 
     public String obterChaveTotpDescriptografada(Usuario usuario, String senhaCandidata) throws Exception {
@@ -137,23 +140,12 @@ public class UsuarioServico {
         return new String(chaveTotpBytes, StandardCharsets.UTF_8);
     }
 
-    /**
-     * Autentica um usuário usando a sequência de pares de dígitos do teclado virtual.
-     * Gera todas as combinações de senha possíveis a partir dos pares e verifica cada uma
-     * contra o hash da senha armazenada do usuário.
-     *
-     * @param email O email do usuário.
-     * @param sequenciaPares A lista de pares de caracteres selecionados no teclado virtual.
-     * @return Um Optional contendo a senha em texto plano que foi validada se a autenticação
-     *         for bem-sucedida, ou Optional.empty() caso contrário.
-     * @throws Exception para outros erros.
-     */
     public Optional<String> autenticarComTecladoVirtual(String email, List<Character[]> sequenciaPares) throws Exception {
         if (email == null || email.trim().isEmpty() || sequenciaPares == null || sequenciaPares.isEmpty()) {
             return Optional.empty();
         }
 
-        Usuario usuario = buscarPorEmail(email);
+        Usuario usuario = buscarPorEmail(email); // Busca o usuário via DAO
         if (usuario == null) {
              return Optional.empty(); 
         }
@@ -180,7 +172,7 @@ public class UsuarioServico {
             usuario.resetarContadoresDeFalha();
             usuario.incrementarTotalAcessos(); 
             if(usuario.isAcessoBloqueado()) usuario.desbloquearAcesso(); 
-            atualizar(usuario); 
+            atualizar(usuario); // Persiste as alterações no usuário via DAO
             return Optional.of(senhaAutenticada);
         } else {
             usuario.registrarFalhaSenha();
@@ -188,7 +180,7 @@ public class UsuarioServico {
                 usuario.bloquearAcessoPorMinutos(MINUTOS_BLOQUEIO_SENHA);
                 System.err.println("Usuário bloqueado por " + MINUTOS_BLOQUEIO_SENHA + " minutos devido a " + usuario.getTentativasFalhasSenha() + " tentativas de senha: " + email);
             }
-            atualizar(usuario); 
+            atualizar(usuario); // Persiste as alterações no usuário via DAO
             return Optional.empty();
         }
     }
@@ -199,6 +191,9 @@ public class UsuarioServico {
                                                 String senhaHash) {
         if (indiceParAtual == sequenciaPares.size()) {
             String candidataFinal = senhaCandidataAtual.toString();
+            if (candidataFinal.length() < 8 || candidataFinal.length() > 10) {
+                return null; 
+            }
             if (PasswordUtil.checkPassword(candidataFinal, senhaHash)) {
                 return candidataFinal;
             }
@@ -224,24 +219,23 @@ public class UsuarioServico {
 
         return null;
     }
-
-    /**
-     * Verifica se é a primeira execução do sistema.
-     * Considera primeira execução se não houver nenhum usuário administrador cadastrado.
-     * @return true se for a primeira execução, false caso contrário.
-     */
+    
     public boolean isFirstExecution() {
-        return usuariosMap.values().stream()
+        try {
+            Optional<Grupo> adminGroupOpt = grupoDAO.buscarPorNome("Administrador");
+            if (adminGroupOpt.isEmpty()) {
+                System.err.println("CRÍTICO: Grupo Administrador não encontrado no banco de dados!");
+                return true; 
+            }
+            List<Usuario> todosUsuarios = usuarioDAO.listarTodos(); 
+            return todosUsuarios.stream()
+                .filter(u -> u.getGrupo() != null)
                 .noneMatch(u -> "Administrador".equalsIgnoreCase(u.getGrupo()));
+        } catch (SQLException e) {
+            throw new RuntimeException("Erro de banco de dados ao verificar primeira execução.", e);
+        }
     }
 
-    /**
-     * Chamado após o cadastro bem-sucedido do primeiro administrador (via setupInitialAdmin)
-     * ou após a validação bem-sucedida da frase secreta em execuções subsequentes.
-     * Armazena a frase secreta do administrador para a sessão atual.
-     * @param admin O usuário administrador relevante (pode ser null se apenas armazenando frase validada).
-     * @param passphrase A frase secreta validada a ser armazenada para a sessão.
-     */
     public void completeAdminFirstSetup(Usuario admin, String passphrase) {
         this.adminPassphraseSession = passphrase;
         if (admin != null && "Administrador".equalsIgnoreCase(admin.getGrupo())) {
@@ -253,97 +247,73 @@ public class UsuarioServico {
         }
     }
     
-    /**
-     * Armazena a frase secreta do administrador para a sessão atual.
-     * Usado após a validação bem-sucedida da frase em execuções subsequentes.
-     * @param passphrase A frase secreta validada.
-     */
     public void storeAdminPassphraseForSession(String passphrase) {
         this.adminPassphraseSession = passphrase;
          System.out.println("[UsuarioServico] Frase secreta do administrador armazenada para a sessão (via storeAdminPassphraseForSession).");
     }
 
-    /**
-     * Obtém a frase secreta do administrador que foi validada e armazenada para a sessão atual.
-     * @return A frase secreta do administrador, ou null se não estiver disponível/validada.
-     */
     public String getAdminPassphraseForSession() {
         return this.adminPassphraseSession;
     }
 
-    /**
-     * Verifica se a frase secreta do administrador já foi validada e armazenada para a sessão atual.
-     * @return true se a frase estiver disponível, false caso contrário.
-     */
     public boolean isAdminPassphraseValidatedForSession() {
         return this.adminPassphraseSession != null && !this.adminPassphraseSession.isEmpty();
     }
     
-    /**
-     * Valida a frase secreta candidata do administrador em execuções subsequentes.
-     * EM IMPLEMENTAÇÃO - Esta é uma simulação básica.
-     * A validação real deve envolver a tentativa de usar a frase para descriptografar
-     * a chave privada do administrador armazenada de forma segura.
-     * @param candidatePassphrase A frase a ser validada.
-     * @return true se a frase for considerada válida (placeholder), false caso contrário.
-     */
     public boolean validateAdminPassphrase(String candidatePassphrase) {
-        if (!isFirstExecution()) {
-            Usuario admin = usuariosMap.values().stream()
-                .filter(u -> "Administrador".equalsIgnoreCase(u.getGrupo()))
-                .findFirst()
-                .orElse(null);
+        if (isFirstExecution()) {
+            return candidatePassphrase != null && !candidatePassphrase.trim().isEmpty();
+        }
+        
+        try {
+            List<Usuario> admins = usuarioDAO.listarTodos().stream()
+                .filter(u -> u.getGrupo() != null && "Administrador".equalsIgnoreCase(u.getGrupo()))
+                .toList();
 
-            if (admin == null) {
-                System.err.println("[UsuarioServico] Erro crítico: Não é primeira execução, mas nenhum administrador encontrado para validar frase.");
+            if (admins.isEmpty()) {
+                 System.err.println("[UsuarioServico] Erro crítico: Não é primeira execução, mas nenhum administrador encontrado para validar frase.");
+                 return false; 
+            }
+            Usuario admin = admins.get(0); 
+
+            if (admin.getKid() == null) {
+                System.err.println("[UsuarioServico] Administrador não possui KID associado. Não é possível validar frase secreta.");
+                return false;
+            }
+
+            Optional<Chaveiro> chaveiroAdminOpt = chaveiroDAO.buscarPorKid(admin.getKid());
+            if (chaveiroAdminOpt.isEmpty()) {
+                System.err.println("[UsuarioServico] Dados do chaveiro não encontrados para o KID do administrador: " + admin.getKid());
+                return false;
+            }
+            Chaveiro chaveiroAdmin = chaveiroAdminOpt.get();
+            
+            if (candidatePassphrase == null || candidatePassphrase.trim().isEmpty()) {
+                return false;
+            }
+
+            try {
+                X509Certificate certificate = CertificateUtil.loadCertificateFromPEMString(chaveiroAdmin.getCertificadoPem());
+                PublicKey publicKey = CertificateUtil.getPublicKeyFromCertificate(certificate);
+                PrivateKey privateKey = PrivateKeyUtil.loadEncryptedPKCS8PrivateKeyFromBytes(chaveiroAdmin.getChavePrivadaCriptografada(), candidatePassphrase);
+                
+                if (PrivateKeyUtil.validatePrivateKeyWithPublicKey(privateKey, publicKey)) {
+                    storeAdminPassphraseForSession(candidatePassphrase); 
+                    return true;
+                }
+                return false; 
+            } catch (Exception e) {
+                System.err.println("Falha ao validar frase secreta do admin com dados do chaveiro: " + e.getMessage());
                 return false; 
             }
-            
-            System.err.println("[UsuarioServico] TODO: Implementar validação completa da frase secreta do admin em execuções subsequentes.");
-            if (this.adminPassphraseSession != null && this.adminPassphraseSession.equals(candidatePassphrase)){
-                return true; 
-            }
-            // A validação real da passphrase ocorreria ao tentar carregar a chave privada do admin
-            // usando PrivateKeyUtil.loadEncryptedPKCS8PrivateKey com os dados do chaveiroMap e candidatePassphrase.
-            // Se carregar com sucesso e validar contra o certificado, a passphrase é válida.
-            // Esta simulação aqui é muito básica e depende do fluxo externo.
-            if (candidatePassphrase != null && !candidatePassphrase.isEmpty()) {
-                // Tentativa de simular a validação (sem realmente fazer a criptografia aqui)
-                DadosChaveiro dadosAdmin = chaveiroMap.get(admin.getKid());
-                if (dadosAdmin != null) {
-                    // Em um cenário real, tentaríamos carregar a chave privada com candidatePassphrase
-                    // Se PrivateKeyUtil.loadEncryptedPKCS8PrivateKey(pathDoArquivoOriginal, candidatePassphrase) funcionar, é válida.
-                    // Como não temos o path aqui, e sim os bytes, a lógica seria um pouco diferente
-                    // ou precisaríamos de um método em PrivateKeyUtil que aceite bytes criptografados.
-                    // Por ora, esta validação de frase para execuções subsequentes continua um TODO complexo.
-                    System.out.println("[UsuarioServico] Simulação: Se a frase secreta funcionar para decriptar a chave do admin (não implementado aqui), seria válida.");
-                    return true; // Simulação básica de sucesso
-                }
-            }
-            return false; 
-        } else {
-            // Na primeira execução, a "validação" da frase é se ela consegue decriptar a chave fornecida.
-            return candidatePassphrase != null && !candidatePassphrase.isEmpty();
+        } catch (SQLException e) {
+             throw new RuntimeException("Erro de banco de dados ao validar frase do admin.", e);
         }
     }
 
-    /**
-     * Configura o administrador inicial do sistema.
-     * Este método é chamado durante a primeira execução.
-     *
-     * @param nomeInput Nome fornecido no formulário (será substituído pelo do certificado).
-     * @param emailInput Email fornecido no formulário (será substituído pelo do certificado).
-     * @param caminhoCertificado Path para o arquivo do certificado digital do administrador (PEM X.509).
-     * @param caminhoChavePrivada Path para o arquivo da chave privada do administrador (PKCS#8 binário, criptografado com AES/ECB/PKCS5Padding pela fraseSecretaChave).
-     * @param fraseSecretaChave Frase secreta para descriptografar a chave privada do arquivo.
-     * @param senhaPessoal Senha numérica pessoal do administrador (para login e chave TOTP).
-     * @param grupo Grupo do usuário (deve ser "Administrador").
-     * @return O objeto Usuario do administrador configurado.
-     * @throws Exception Se ocorrer qualquer erro durante o setup.
-     */
     public Usuario setupInitialAdmin(String nomeInputIgnorado, String emailInputIgnorado, 
                                      String caminhoCertificado, String caminhoChavePrivada, 
-                                     String fraseSecretaChave, String senhaPessoal, String grupo) throws Exception {
+                                     String fraseSecretaChave, String senhaPessoal, String grupoNome) throws Exception {
         
         System.out.println("[UsuarioServico] Iniciando setup do administrador inicial... (MSG 1005)");
         if (!isFirstExecution()) {
@@ -355,7 +325,7 @@ public class UsuarioServico {
             caminhoChavePrivada == null || caminhoChavePrivada.trim().isEmpty() ||
             fraseSecretaChave == null || fraseSecretaChave.trim().isEmpty() ||
             senhaPessoal == null || senhaPessoal.trim().isEmpty() ||
-            !"Administrador".equalsIgnoreCase(grupo)) {
+            !"Administrador".equalsIgnoreCase(grupoNome)) {
             System.err.println("[UsuarioServico] Dados inválidos fornecidos para setup do admin.");
             throw new IllegalArgumentException("Dados insuficientes ou inválidos para o cadastro do administrador.");
         }
@@ -365,116 +335,124 @@ public class UsuarioServico {
         PrivateKey privateKey;
         String nomeDoCertificado;
         String emailDoCertificado;
-        String certificadoPem;
+        String certificadoPemString;
         byte[] chavePrivadaOriginalCriptografadaBytes;
 
         try {
             System.out.println("[UsuarioServico] Carregando certificado de: " + caminhoCertificado);
             certificate = CertificateUtil.loadCertificateFromFile(caminhoCertificado);
             if (certificate == null) {
-                System.err.println("[UsuarioServico] Falha ao carregar o certificado. (MSG 6004 - adaptado)");
-                throw new RuntimeException("Falha ao carregar o certificado do administrador.");
+                throw new RuntimeException("Falha ao carregar o certificado do administrador. (MSG 6004 - adaptado)");
             }
-            System.out.println("[UsuarioServico] Certificado carregado. Sujeito: " + certificate.getSubjectX500Principal().getName());
-
             publicKey = CertificateUtil.getPublicKeyFromCertificate(certificate);
-            if (publicKey == null) {
-                 System.err.println("[UsuarioServico] Falha ao extrair chave pública do certificado.");
-                throw new RuntimeException("Falha ao extrair chave pública do certificado.");
-            }
-
-            System.out.println("[UsuarioServico] Lendo bytes da chave privada original de: " + caminhoChavePrivada);
+            
             chavePrivadaOriginalCriptografadaBytes = Files.readAllBytes(Paths.get(caminhoChavePrivada));
-
-            System.out.println("[UsuarioServico] Carregando e decriptografando chave privada de: " + caminhoChavePrivada);
-            privateKey = PrivateKeyUtil.loadEncryptedPKCS8PrivateKey(caminhoChavePrivada, fraseSecretaChave);
-            if (privateKey == null) {
-                System.err.println("[UsuarioServico] Falha ao carregar/decriptografar a chave privada. Verifique o caminho ou frase secreta. (MSG 6005 ou 6006)");
-                throw new RuntimeException("Falha ao carregar ou decriptografar a chave privada do administrador. Verifique o caminho ou a frase secreta.");
-            }
-            System.out.println("[UsuarioServico] Chave privada carregada e decriptografada.");
-
-            System.out.println("[UsuarioServico] Validando chave privada com chave pública do certificado...");
-            boolean chaveValida = PrivateKeyUtil.validatePrivateKeyWithPublicKey(privateKey, publicKey);
-            if (!chaveValida) {
-                System.err.println("[UsuarioServico] Chave privada não corresponde à chave pública do certificado. (MSG 6007)");
+            privateKey = PrivateKeyUtil.loadEncryptedPKCS8PrivateKeyFromBytes(chavePrivadaOriginalCriptografadaBytes, fraseSecretaChave);
+            
+            if (!PrivateKeyUtil.validatePrivateKeyWithPublicKey(privateKey, publicKey)) {
                 throw new SecurityException("Chave privada não corresponde ao certificado. (MSG 6007)");
             }
-            System.out.println("[UsuarioServico] Chave privada validada com sucesso.");
 
             nomeDoCertificado = CertificateUtil.extractCNFromCertificate(certificate);
             emailDoCertificado = CertificateUtil.extractEmailFromCertificate(certificate);
             if (emailDoCertificado == null || emailDoCertificado.trim().isEmpty()) {
-                System.err.println("[UsuarioServico] Não foi possível extrair o e-mail do certificado.");
                 throw new RuntimeException("Não foi possível extrair o e-mail do certificado do administrador.");
             }
-            if (nomeDoCertificado == null || nomeDoCertificado.trim().isEmpty()) {
-                System.err.println("[UsuarioServico] Não foi possível extrair o Nome Comum (CN) do certificado. Usando o email como nome.");
-                nomeDoCertificado = emailDoCertificado; 
-            }
-             System.out.println("[UsuarioServico] Dados extraídos do certificado - Nome: " + nomeDoCertificado + ", Email: " + emailDoCertificado);
+            if (nomeDoCertificado == null || nomeDoCertificado.trim().isEmpty()) nomeDoCertificado = emailDoCertificado; 
 
-            if (emailParaIdMap.containsKey(emailDoCertificado)) {
-                System.err.println("[UsuarioServico] Email extraído do certificado já existe no sistema: " + emailDoCertificado);
+            if (usuarioDAO.emailExiste(emailDoCertificado)) { // Usa DAO
                 throw new EmailJaExisteException("Email do certificado ('" + emailDoCertificado + "') já cadastrado.");
             }
-
-            certificadoPem = CertificateUtil.convertToPem(certificate);
-            if (certificadoPem == null) {
-                 System.err.println("[UsuarioServico] Falha ao converter certificado para o formato PEM.");
-                throw new RuntimeException("Falha ao converter certificado para formato PEM.");
-            }
+            certificadoPemString = CertificateUtil.convertToPem(certificate);
 
         } catch (CertificateException | IOException e) {
-            System.err.println("[UsuarioServico] Erro ao processar certificado/chave: " + e.getMessage());
             throw new Exception("Erro ao processar arquivos de certificado ou chave privada: " + e.getMessage(), e);
         } catch (SecurityException e) { 
              throw e; 
         } catch (Exception e) {
-            System.err.println("[UsuarioServico] Erro inesperado durante o setup criptográfico do admin: " + e.getMessage());
-            e.printStackTrace();
-            throw new Exception("Erro inesperado no setup do administrador: " + e.getMessage(), e);
+            throw new Exception("Erro inesperado no setup criptográfico do admin: " + e.getMessage(), e);
         }
 
         Usuario adminUsuario = new Usuario();
         adminUsuario.setNome(nomeDoCertificado);
         adminUsuario.setEmail(emailDoCertificado);
         adminUsuario.setGrupo("Administrador"); 
+        adminUsuario.setSenha(PasswordUtil.hashPassword(senhaPessoal));
+        
+        String chaveSecretaTotpBase32 = totpServico.gerarChaveSecreta();
+        SecretKey aesKeyForTotp = AESUtil.generateKeyFromSecret(senhaPessoal, 256);
+        byte[] chaveTotpCriptografadaBytes = AESUtil.encrypt(chaveSecretaTotpBase32.getBytes(StandardCharsets.UTF_8), aesKeyForTotp);
+        adminUsuario.setChaveSecretaTotp(Base64.getEncoder().encodeToString(chaveTotpCriptografadaBytes));
+        adminUsuario.setContaAtiva(true); // Assumindo que o modelo Usuario tem setContaAtiva ou é gerenciado por padrão
+        
+        Optional<Grupo> adminGrupoOpt = grupoDAO.buscarPorNome("Administrador");
+        if (adminGrupoOpt.isEmpty()) {
+            throw new Exception("Grupo Administrador não encontrado no banco de dados durante o setup.");
+        }
+        Usuario adminSalvo = usuarioDAO.salvar(adminUsuario, adminGrupoOpt.get().getGid()); // Salva e obtém UID
+
+        // Armazenar no Chaveiro (BD)
+        Chaveiro chaveiroAdmin = new Chaveiro(0, adminSalvo.getId(), certificadoPemString, chavePrivadaOriginalCriptografadaBytes); // KID será gerado pelo BD
+        Chaveiro chaveiroSalvo = chaveiroDAO.salvar(chaveiroAdmin); // Salva e obtém KID
+        
+        // Atualizar o usuário admin com o KID do seu chaveiro principal
+        adminSalvo.setKid(chaveiroSalvo.getKid()); // setKid espera Integer
+        usuarioDAO.atualizarKidPadrao(adminSalvo.getId(), adminSalvo.getKid());
+
+        System.out.println("[UsuarioServico] Certificado PEM e chave privada criptografada do admin armazenados no Chaveiro (BD) com KID: " + chaveiroSalvo.getKid() + " para UID: " + adminSalvo.getId());
+        
+        this.storeAdminPassphraseForSession(fraseSecretaChave); // Armazena frase validada
+        
+        System.out.println("[UsuarioServico] Setup do administrador inicial concluído com sucesso para: " + adminSalvo.getEmail() + ". Chave TOTP (plana): " + chaveSecretaTotpBase32);
+        return adminSalvo;
+    }
+
+    // --- Métodos adicionais para gerenciamento de Chaveiro ---
+    public void associarKidAoUsuario(long uid, int kid) throws SQLException {
+        Usuario usuario = buscarPorId(uid); // Valida se usuário existe
+        
+        Optional<Chaveiro> chaveiroOpt = chaveiroDAO.buscarPorKid(kid);
+        if(chaveiroOpt.isEmpty()){
+            throw new SQLException("Chaveiro com KID " + kid + " não encontrado.");
+        }
+        // Opcional: verificar se chaveiroOpt.get().getUid() == uid se necessário
+
+        usuarioDAO.atualizarKidPadrao(uid, kid);
+        System.out.println("[UsuarioServico] KID " + kid + " associado ao usuário UID " + uid + " como KID padrão.");
+    }
+
+    public Chaveiro salvarChaveiro(long uid, String certificadoPem, byte[] chavePrivadaCriptografada, String senhaMestreDoCertificado) throws Exception {
+        Usuario usuario = buscarPorId(uid); // Valida se usuário existe
 
         try {
-            String hashedSenhaPessoal = PasswordUtil.hashPassword(senhaPessoal);
-            adminUsuario.setSenha(hashedSenhaPessoal);
-            System.out.println("[UsuarioServico] Senha pessoal do admin hasheada.");
+            PrivateKey privateKey = PrivateKeyUtil.loadEncryptedPKCS8PrivateKeyFromBytes(chavePrivadaCriptografada, senhaMestreDoCertificado);
+            X509Certificate certificate = CertificateUtil.loadCertificateFromPEMString(certificadoPem);
+            PublicKey publicKey = certificate.getPublicKey();
 
-            String chaveSecretaTotpBase32 = totpServico.gerarChaveSecreta();
-            SecretKey aesKeyForTotp = AESUtil.generateKeyFromSecret(senhaPessoal, 256);
-            byte[] chaveTotpCriptografadaBytes = AESUtil.encrypt(chaveSecretaTotpBase32.getBytes(StandardCharsets.UTF_8), aesKeyForTotp);
-            adminUsuario.setChaveSecretaTotp(Base64.getEncoder().encodeToString(chaveTotpCriptografadaBytes));
-            System.out.println("[UsuarioServico] Chave TOTP do admin gerada ("+ chaveSecretaTotpBase32 +") e criptografada.");
-
+            if (!PrivateKeyUtil.validatePrivateKeyWithPublicKey(privateKey, publicKey)) {
+                throw new IllegalArgumentException("A chave privada fornecida (usando a senha mestre) não corresponde ao certificado público.");
+            }
         } catch (Exception e) {
-            System.err.println("[UsuarioServico] Erro ao configurar senha ou TOTP para o admin: " + e.getMessage());
-            e.printStackTrace();
-            throw new Exception("Erro ao configurar credenciais do administrador: " + e.getMessage(), e);
+            throw new IllegalArgumentException("Senha mestre inválida ou par chave/certificado incompatível. Detalhe: " + e.getMessage(), e);
         }
         
-        long idGerado = proximoId.getAndIncrement();
-        adminUsuario.setId(idGerado);
-        adminUsuario.setKid(idGerado); // KID é Long, igual ao ID do usuário
+        Chaveiro novoChaveiro = new Chaveiro(0, uid, certificadoPem, chavePrivadaCriptografada); 
+        Chaveiro chaveiroSalvo = chaveiroDAO.salvar(novoChaveiro);
+        System.out.println("[UsuarioServico] Novo chaveiro salvo com KID: " + chaveiroSalvo.getKid() + " para UID: " + uid);
 
-        usuariosMap.put(idGerado, adminUsuario);
-        emailParaIdMap.put(adminUsuario.getEmail(), idGerado);
-        System.out.println("[UsuarioServico] Usuário admin salvo no mapa de usuários: " + adminUsuario.getEmail());
-
-        // Armazenar no Chaveiro (Simulado)
-        // Agora o construtor de DadosChaveiro e o put no chaveiroMap usam Long para o KID
-        DadosChaveiro dadosChaveiroAdmin = new DadosChaveiro(adminUsuario.getKid(), certificadoPem, chavePrivadaOriginalCriptografadaBytes);
-        chaveiroMap.put(adminUsuario.getKid(), dadosChaveiroAdmin);
-        System.out.println("[UsuarioServico] Certificado PEM e chave privada original criptografada do admin armazenados no chaveiro (simulado) com KID: " + adminUsuario.getKid());
-        
-        this.completeAdminFirstSetup(adminUsuario, fraseSecretaChave);
-        
-        System.out.println("[UsuarioServico] Setup do administrador inicial concluído com sucesso para: " + adminUsuario.getEmail());
-        return adminUsuario;
+        if (usuario.getKid() == null) { // Se não houver KID padrão, define este
+            usuarioDAO.atualizarKidPadrao(uid, chaveiroSalvo.getKid());
+            System.out.println("[UsuarioServico] Novo chaveiro KID " + chaveiroSalvo.getKid() + " definido como padrão para UID: " + uid);
+        }
+        return chaveiroSalvo;
     }
-} 
+
+    public Optional<Chaveiro> buscarChaveiroPorKid(int kid) throws SQLException {
+        return chaveiroDAO.buscarPorKid(kid);
+    }
+
+    public List<Chaveiro> listarChaveirosPorUid(long uid) throws SQLException {
+        buscarPorId(uid); // Valida se usuário existe
+        return chaveiroDAO.buscarPorUid(uid);
+    }
+}

@@ -10,6 +10,7 @@ import java.security.cert.CertificateException;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
 import java.util.Base64;
+import java.nio.charset.StandardCharsets;
 
 public class CertificateUtil {
 
@@ -152,5 +153,17 @@ public class CertificateUtil {
             System.err.println("Erro ao codificar o certificado para PEM: " + e.getMessage());
             return null;
         }
+    }
+
+    public static X509Certificate loadCertificateFromPEMString(String pemString) throws Exception {
+        if (pemString == null || pemString.trim().isEmpty()) {
+            throw new IllegalArgumentException("PEM string não pode ser nula ou vazia.");
+        }
+        CertificateFactory cf = CertificateFactory.getInstance("X.509");
+        // A string PEM já deve estar no formato correto, incluindo BEGIN/END e base64 com quebras de linha.
+        // Se ela estiver apenas o base64 puro, a lógica de leitura/decode precisa ser ajustada aqui.
+        // Assumindo que pemString é o conteúdo completo do arquivo .pem
+        InputStream is = new ByteArrayInputStream(pemString.getBytes(StandardCharsets.UTF_8));
+        return (X509Certificate) cf.generateCertificate(is);
     }
 } 
