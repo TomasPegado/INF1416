@@ -47,7 +47,7 @@ public class CofreDigitalApp {
         final RegistroServico rsParaUI = registroServico;
         SwingUtilities.invokeLater(new Runnable() {
             public void run() {
-                MainFrame mainFrame = new MainFrame(usuarioServico, totpServico);
+                MainFrame mainFrame = new MainFrame(usuarioServico, totpServico, rsParaUI);
                 mainFrame.setVisible(true);
             }
         });

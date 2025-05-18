@@ -31,10 +31,13 @@ C:\Users\Gabi\git-si\INF1416\T3\cofre-digital\src\main\java\br\com\cofredigital\
 C:\Users\Gabi\git-si\INF1416\T3\cofre-digital\src\main\java\br\com\cofredigital\ui\gui\CadastroUsuarioPanel.java
 C:\Users\Gabi\git-si\INF1416\T3\cofre-digital\src\main\java\br\com\cofredigital\ui\gui\LoginPanel.java
 C:\Users\Gabi\git-si\INF1416\T3\cofre-digital\src\main\java\br\com\cofredigital\ui\gui\MainFrame.java
+C:\Users\Gabi\git-si\INF1416\T3\cofre-digital\src\main\java\br\com\cofredigital\ui\gui\SetupAdminPanel.java
 C:\Users\Gabi\git-si\INF1416\T3\cofre-digital\src\main\java\br\com\cofredigital\ui\gui\TecladoVirtualPanel.java
 C:\Users\Gabi\git-si\INF1416\T3\cofre-digital\src\main\java\br\com\cofredigital\ui\gui\TotpQrCodePanel.java
 C:\Users\Gabi\git-si\INF1416\T3\cofre-digital\src\main\java\br\com\cofredigital\ui\gui\TotpValidationPanel.java
+C:\Users\Gabi\git-si\INF1416\T3\cofre-digital\src\main\java\br\com\cofredigital\ui\gui\ValidateAdminPassphrasePanel.java
 C:\Users\Gabi\git-si\INF1416\T3\cofre-digital\src\main\java\br\com\cofredigital\util\Base32.java
 C:\Users\Gabi\git-si\INF1416\T3\cofre-digital\src\main\java\br\com\cofredigital\util\exception\EmailJaExisteException.java
 C:\Users\Gabi\git-si\INF1416\T3\cofre-digital\src\main\java\br\com\cofredigital\util\exception\UsuarioNaoEncontradoException.java
 C:\Users\Gabi\git-si\INF1416\T3\cofre-digital\src\main\java\br\com\cofredigital\util\QrCodeUtil.java
+C:\Users\Gabi\git-si\INF1416\T3\cofre-digital\src\main\java\br\com\cofredigital\util\StringUtil.java

@@ -14,15 +14,21 @@ import org.bouncycastle.pkcs.PKCS8EncryptedPrivateKeyInfo;
 import org.bouncycastle.pkcs.PKCSException;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 
+import javax.crypto.Cipher;
 import javax.crypto.SecretKey;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
+import java.io.StringReader;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.security.*;
 import java.security.spec.InvalidKeySpecException;
 import java.security.spec.PKCS8EncodedKeySpec;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import java.util.Base64;
 
 public final class PrivateKeyUtil {
 
@@ -122,66 +128,129 @@ public final class PrivateKeyUtil {
             System.err.println("Caminho do arquivo da chave privada criptografada não pode ser nulo ou vazio.");
             return null;
         }
-        if (passphrase == null || passphrase.trim().isEmpty()) {
-            System.err.println("Frase secreta não pode ser nula ou vazia para decriptografar a chave privada.");
-            return null;
+        // Não verificar passphrase aqui, pois a Tentativa 2 (PEM puro) pode não precisar dela
+
+        byte[] fileBytes; // Renomeado de keyFileBytes para evitar confusão com "chave" em si
+        try {
+            fileBytes = Files.readAllBytes(Paths.get(filePath));
+        } catch (IOException e) {
+            System.err.println("[PrivateKeyUtil] Falha ao ler o arquivo da chave privada: " + filePath + " - " + e.getMessage());
+            return null; 
         }
 
-        try {
-            // 1. Ler todos os bytes do arquivo binário criptografado
-            byte[] encryptedPkcs8Bytes = Files.readAllBytes(Paths.get(filePath));
+        // Tentativa 1: Assumir que o arquivo está totalmente criptografado com AES,
+        // e o conteúdo decriptografado é uma string PEM contendo a chave PKCS#8.
+        // (Baseado na lógica do KeyManager.java original do usuário)
+        if (passphrase != null && !passphrase.isEmpty()) {
+            try {
+                SecretKey aesKey = AESUtil.generateKeyFromSecret(passphrase, 256); // Roteiro especifica 256 bits
+                Cipher cipher = Cipher.getInstance("AES/ECB/PKCS5Padding");
+                cipher.init(Cipher.DECRYPT_MODE, aesKey);
+                byte[] decryptedBytes = cipher.doFinal(fileBytes);
+                
+                String pemString = new String(decryptedBytes, StandardCharsets.UTF_8);
 
-            // 2. Derivar a chave AES de 256 bits da frase secreta usando SHA1PRNG
-            SecretKey aesKey = AESUtil.generateKeyFromSecret(passphrase, 256);
+                Pattern pattern = Pattern.compile(
+                    "-----BEGIN (?:ENCRYPTED )?(RSA |EC |DSA |OPENSSH |PKCS8 )?PRIVATE KEY-----(.+?)-----END (?:ENCRYPTED )?(RSA |EC |DSA |OPENSSH |PKCS8 )?PRIVATE KEY-----",
+                    Pattern.DOTALL
+                );
+                Matcher matcher = pattern.matcher(pemString);
 
-            // 3. Decriptografar os bytes usando AES/ECB/PKCS5Padding
-            byte[] decryptedPkcs8Bytes = AESUtil.decrypt(encryptedPkcs8Bytes, aesKey);
-
-            // 4. Converter os bytes PKCS#8 decriptografados para um objeto PrivateKey
-            PKCS8EncodedKeySpec keySpec = new PKCS8EncodedKeySpec(decryptedPkcs8Bytes);
-            
-            // Tenta adivinhar o algoritmo da chave (RSA, EC, DSA) para o KeyFactory.
-            // Isso é uma heurística. Idealmente, o algoritmo seria conhecido.
-            // Para o trabalho, provavelmente será RSA.
-            String keyAlgorithm = अनुमानितKeyAlgorithmFromPKCS8(decryptedPkcs8Bytes); 
-            // Se não conseguir adivinhar, tentamos os mais comuns
-            KeyFactory keyFactory;
-            if (keyAlgorithm != null) {
-                 keyFactory = KeyFactory.getInstance(keyAlgorithm, "BC"); // Tenta com o provedor BC
-            } else {
-                // Tentar com algoritmos comuns se a adivinhação falhar
-                try {
-                    keyFactory = KeyFactory.getInstance("RSA", "BC");
-                } catch (NoSuchAlgorithmException | NoSuchProviderException eRSA) {
+                if (matcher.find()) {
+                    String base64Block = matcher.group(2).replaceAll("\\s", "").replaceAll("\\r", "").replaceAll("\\n", "");
+                    byte[] pkcs8Bytes = Base64.getDecoder().decode(base64Block);
+                    PKCS8EncodedKeySpec keySpec = new PKCS8EncodedKeySpec(pkcs8Bytes);
+                    
+                    // Tentar adivinhar o algoritmo ou usar RSA como padrão
+                    KeyFactory kf;
                     try {
-                        keyFactory = KeyFactory.getInstance("EC", "BC");
-                    } catch (NoSuchAlgorithmException | NoSuchProviderException eEC) {
-                         try {
-                            keyFactory = KeyFactory.getInstance("DSA", "BC");
-                        } catch (NoSuchAlgorithmException | NoSuchProviderException eDSA) {
-                             System.err.println("Não foi possível obter KeyFactory para RSA, EC ou DSA com provedor BC.");
-                             throw eDSA; // Relança a última exceção
+                        kf = KeyFactory.getInstance("RSA", "BC"); 
+                    } catch (NoSuchAlgorithmException | NoSuchProviderException e) {
+                        try {
+                           kf = KeyFactory.getInstance("EC", "BC");
+                        } catch (NoSuchAlgorithmException | NoSuchProviderException e2) {
+                           kf = KeyFactory.getInstance("DSA", "BC"); // Última tentativa
                         }
                     }
+                    PrivateKey resultKey = kf.generatePrivate(keySpec);
+                    System.out.println("[PrivateKeyUtil] Tentativa 1 (AES Decrypt + PEM Extract): Sucesso para: " + filePath);
+                    return resultKey;
+                } else {
+                    System.err.println("[PrivateKeyUtil] Tentativa 1 (AES Decrypt + PEM Extract) Falhou para " + filePath + ": Conteúdo decriptado não contém bloco PEM PKCS#8 reconhecível.");
+                    // Não retorna, permite cair para a Tentativa 2
+                }
+            } catch (javax.crypto.BadPaddingException | javax.crypto.IllegalBlockSizeException bpe) {
+                System.err.println("[PrivateKeyUtil] Tentativa 1 (AES Decrypt + PEM Extract) Falhou para " + filePath + ": Provável frase secreta incorreta ou arquivo não é AES criptografado como esperado. " + bpe.getMessage());
+            } catch (Exception e) {
+                System.err.println("[PrivateKeyUtil] Tentativa 1 (AES Decrypt + PEM Extract) Falhou para " + filePath + ": Erro geral. " + e.getClass().getName() + " - " + e.getMessage());
+            }
+        } else {
+            System.out.println("[PrivateKeyUtil] Pulando Tentativa 1 (AES Decrypt + PEM Extract) para " + filePath + " porque a frase secreta está vazia ou nula.");
+        }
+
+        // Tentativa 2: Tratar o arquivo diretamente como um arquivo PEM (se a Tentativa 1 falhou ou foi pulada)
+        // Esta é a lógica que loadPrivateKeyFromPEMFile usa, mas aplicada aqui aos fileBytes.
+        System.out.println("[PrivateKeyUtil] Iniciando Tentativa 2 (PEM Parse Direto) para: " + filePath);
+        try (StringReader stringReader = new StringReader(new String(fileBytes, StandardCharsets.UTF_8));
+             PEMParser pemParser = new PEMParser(stringReader)) {
+
+            Object object = pemParser.readObject();
+            JcaPEMKeyConverter converter = new JcaPEMKeyConverter().setProvider("BC");
+
+            if (object == null) {
+                System.err.println("[PrivateKeyUtil] Tentativa 2 (PEM Parse Direto) Falhou para " + filePath + ": Nenhum objeto PEM encontrado (arquivo pode não ser PEM textual UTF-8 ou estar vazio/corrompido).");
+                // Não retorna null ainda, a falha final será impressa depois se ambas falharem.
+            } else {
+                System.out.println("[PrivateKeyUtil] Tentativa 2 (PEM Parse Direto) para " + filePath + ": Objeto lido: " + object.getClass().getName());
+                // ... (lógica existente para PKCS8EncryptedPrivateKeyInfo, PEMEncryptedKeyPair, PEMKeyPair, PrivateKeyInfo) ...
+                // Assegure que as condições de passphrase para tipos criptografados PEM sejam verificadas aqui.
+                 if (object instanceof PKCS8EncryptedPrivateKeyInfo) {
+                    PKCS8EncryptedPrivateKeyInfo encryptedInfo = (PKCS8EncryptedPrivateKeyInfo) object;
+                    if (passphrase == null || passphrase.isEmpty()) {
+                        System.err.println("[PrivateKeyUtil] Tentativa 2 Falhou para " + filePath + ": Senha necessária para PKCS8EncryptedPrivateKeyInfo, mas frase está vazia/nula.");
+                        return null; // Retorna null aqui pois é um requisito
+                    }
+                    InputDecryptorProvider decryptorProvider = new JceOpenSSLPKCS8DecryptorProviderBuilder().setProvider("BC").build(passphrase.toCharArray());
+                    PrivateKeyInfo privateKeyInfo = encryptedInfo.decryptPrivateKeyInfo(decryptorProvider);
+                    System.out.println("[PrivateKeyUtil] Tentativa 2: Sucesso com PKCS8EncryptedPrivateKeyInfo.");
+                    return converter.getPrivateKey(privateKeyInfo);
+                } else if (object instanceof PEMEncryptedKeyPair) {
+                    PEMEncryptedKeyPair encryptedKeyPair = (PEMEncryptedKeyPair) object;
+                    if (passphrase == null || passphrase.isEmpty()) {
+                        System.err.println("[PrivateKeyUtil] Tentativa 2 Falhou para " + filePath + ": Senha necessária para PEMEncryptedKeyPair, mas frase está vazia/nula.");
+                        return null;
+                    }
+                    PEMDecryptorProvider decryptorProvider = new JcePEMDecryptorProviderBuilder().setProvider("BC").build(passphrase.toCharArray());
+                    PEMKeyPair pemKeyPair = encryptedKeyPair.decryptKeyPair(decryptorProvider);
+                    System.out.println("[PrivateKeyUtil] Tentativa 2: Sucesso com PEMEncryptedKeyPair.");
+                    return converter.getPrivateKey(pemKeyPair.getPrivateKeyInfo());
+                } else if (object instanceof PEMKeyPair) { 
+                    PEMKeyPair pemKeyPair = (PEMKeyPair) object;
+                    System.out.println("[PrivateKeyUtil] Tentativa 2: Sucesso com PEMKeyPair (não criptografado).");
+                    return converter.getPrivateKey(pemKeyPair.getPrivateKeyInfo());
+                } else if (object instanceof PrivateKeyInfo) { 
+                    PrivateKeyInfo privateKeyInfo = (PrivateKeyInfo) object;
+                    System.out.println("[PrivateKeyUtil] Tentativa 2: Sucesso com PrivateKeyInfo (PKCS#8 não criptografado em PEM).");
+                    return converter.getPrivateKey(privateKeyInfo);
+                } else {
+                    System.err.println("[PrivateKeyUtil] Tentativa 2 Falhou para " + filePath + ": Formato de objeto PEM não suportado: " + object.getClass().getName());
+                    // Não retorna null, deixa cair para a mensagem de falha geral
                 }
             }
-            return keyFactory.generatePrivate(keySpec);
-
-        } catch (FileNotFoundException e) {
-            System.err.println("Arquivo da chave privada criptografada não encontrado: " + filePath + " - " + e.getMessage());
-        } catch (IOException e) {
-            System.err.println("Erro de I/O ao ler o arquivo da chave privada criptografada: " + filePath + " - " + e.getMessage());
-        } catch (NoSuchAlgorithmException e) {
-            System.err.println("Algoritmo não encontrado durante o carregamento da chave privada criptografada (AES, SHA1PRNG, ou algoritmo da chave): " + e.getMessage());
-        } catch (InvalidKeySpecException e) {
-            System.err.println("Especificação de chave inválida (PKCS8) para a chave privada decriptografada: " + e.getMessage());
-        } catch (Exception e) { // Captura para erros de AESUtil (NoSuchPadding, InvalidKey, etc.) ou outros
-            System.err.println("Erro ao carregar/decriptografar a chave privada PKCS#8: " + e.getMessage());
-            e.printStackTrace();
+        } catch (OperatorCreationException oce) { 
+            System.err.println("[PrivateKeyUtil] Tentativa 2 (PEM Parse Direto) Falhou para " + filePath + ": OperatorCreationException (senha incorreta para PEM criptografado / formato incompatível?). " + oce.getMessage());
+        } catch (PKCSException pkcse) { 
+            System.err.println("[PrivateKeyUtil] Tentativa 2 (PEM Parse Direto) Falhou para " + filePath + ": PKCSException (formato PEM inválido?). " + pkcse.getMessage());
+        } catch (IOException ioe) { 
+             System.err.println("[PrivateKeyUtil] Tentativa 2 (PEM Parse Direto) Falhou para " + filePath + ": IOException no processamento. " + ioe.getMessage());
+        } catch (Exception e) { 
+            System.err.println("[PrivateKeyUtil] Tentativa 2 (PEM Parse Direto) Falhou para " + filePath + ": Exceção Geral. " + e.getClass().getName() + " - " + e.getMessage());
         }
+
+        System.err.println("[PrivateKeyUtil] Todas as tentativas de carregar a chave privada falharam para: " + filePath);
         return null;
     }
-    
+
     // Método auxiliar heurístico para tentar determinar o algoritmo da chave a partir de bytes PKCS#8
     // Isto é complexo e não 100% garantido. Para o escopo do trabalho, pode ser simplificado
     // se o tipo de chave for sempre conhecido (ex: RSA).
@@ -346,49 +415,78 @@ public final class PrivateKeyUtil {
     }
 
     /**
-     * Carrega uma chave privada PKCS#8 a partir de bytes criptografados com AES/ECB/PKCS5Padding.
-     * A chave AES para decriptografia é derivada da frase secreta.
+     * Carrega uma chave privada a partir de bytes que representam o conteúdo de um arquivo de chave.
+     * Este método assume que os bytes podem representar um formato PEM (potencialmente criptografado)
+     * que o PEMParser do BouncyCastle pode processar.
      *
-     * @param encryptedPkcs8Bytes Os bytes da chave privada criptografada.
-     * @param passphrase A frase secreta para derivar a chave AES de decriptografia.
+     * @param keyFileBytes Os bytes do arquivo de chave privada.
+     * @param passphrase A frase secreta para decriptografia, se a chave PEM estiver criptografada.
      * @return Um objeto PrivateKey, ou null se o carregamento falhar.
      */
-    public static PrivateKey loadEncryptedPKCS8PrivateKeyFromBytes(byte[] encryptedPkcs8Bytes, String passphrase) {
-        if (encryptedPkcs8Bytes == null || encryptedPkcs8Bytes.length == 0) {
-            System.err.println("Bytes da chave privada criptografada não podem ser nulos ou vazios.");
+    public static PrivateKey loadEncryptedPKCS8PrivateKeyFromBytes(byte[] keyFileBytes, String passphrase) {
+        if (keyFileBytes == null || keyFileBytes.length == 0) {
+            System.err.println("[PrivateKeyUtil] Bytes da chave privada não podem ser nulos ou vazios.");
             return null;
         }
-        if (passphrase == null || passphrase.trim().isEmpty()) {
-            System.err.println("Frase secreta não pode ser nula ou vazia para decriptografar a chave privada.");
+        if (passphrase == null) { 
+            System.err.println("[PrivateKeyUtil] Frase secreta não pode ser nula (pode ser string vazia se a chave não for criptografada ou o formato PEM não a exigir explictamente).");
             return null;
         }
 
-        try {
-            SecretKey aesKey = AESUtil.generateKeyFromSecret(passphrase, 256);
-            byte[] decryptedPkcs8Bytes = AESUtil.decrypt(encryptedPkcs8Bytes, aesKey);
-            PKCS8EncodedKeySpec keySpec = new PKCS8EncodedKeySpec(decryptedPkcs8Bytes);
-            
-            KeyFactory keyFactory;
-            try {
-                keyFactory = KeyFactory.getInstance("RSA", "BC");
-            } catch (NoSuchAlgorithmException | NoSuchProviderException eRSA) {
-                try {
-                    keyFactory = KeyFactory.getInstance("EC", "BC");
-                } catch (NoSuchAlgorithmException | NoSuchProviderException eEC) {
-                    try {
-                        keyFactory = KeyFactory.getInstance("DSA", "BC");
-                    } catch (NoSuchAlgorithmException | NoSuchProviderException eDSA) {
-                        System.err.println("Não foi possível obter KeyFactory para RSA, EC ou DSA com provedor BC.");
-                        throw eDSA; 
-                    }
-                }
+        // Tenta interpretar os bytes diretamente como um arquivo PEM e usar PEMParser
+        // Isso lida com casos onde keyFileBytes é um arquivo PEM (possivelmente criptografado internamente pelo PEM).
+        // System.out.println("[PrivateKeyUtil] Tentando carregar chave usando PEMParser diretamente nos bytes fornecidos.");
+        try (StringReader stringReader = new StringReader(new String(keyFileBytes, StandardCharsets.UTF_8));
+             PEMParser pemParser = new PEMParser(stringReader)) {
+
+            Object object = pemParser.readObject();
+            JcaPEMKeyConverter converter = new JcaPEMKeyConverter().setProvider("BC");
+
+            if (object == null) {
+                System.err.println("[PrivateKeyUtil] Falhou: Nenhum objeto PEM encontrado nos bytes fornecidos (o arquivo pode não ser PEM textual UTF-8 ou estar vazio/corrompido).");
+                return null;
             }
-            return keyFactory.generatePrivate(keySpec);
-        } catch (InvalidKeySpecException e) {
-            System.err.println("Especificação de chave inválida (PKCS8) para a chave privada decriptografada: " + e.getMessage());
+            
+            // System.out.println("[PrivateKeyUtil] Objeto lido pelo PEMParser: " + object.getClass().getName());
+
+            if (object instanceof PKCS8EncryptedPrivateKeyInfo) {
+                PKCS8EncryptedPrivateKeyInfo encryptedInfo = (PKCS8EncryptedPrivateKeyInfo) object;
+                // Mesmo que a passphrase seja vazia, JceOpenSSLPKCS8DecryptorProviderBuilder pode lidar com isso ou lançar exceção se a chave estiver de fato criptografada.
+                InputDecryptorProvider decryptorProvider = new JceOpenSSLPKCS8DecryptorProviderBuilder().setProvider("BC").build(passphrase.toCharArray());
+                PrivateKeyInfo privateKeyInfo = encryptedInfo.decryptPrivateKeyInfo(decryptorProvider);
+                System.out.println("[PrivateKeyUtil] Sucesso com PKCS8EncryptedPrivateKeyInfo.");
+                return converter.getPrivateKey(privateKeyInfo);
+            } else if (object instanceof PEMEncryptedKeyPair) {
+                PEMEncryptedKeyPair encryptedKeyPair = (PEMEncryptedKeyPair) object;
+                // PEMEncryptedKeyPair geralmente requer uma passphrase não vazia se estiver realmente criptografado.
+                PEMDecryptorProvider decryptorProvider = new JcePEMDecryptorProviderBuilder().setProvider("BC").build(passphrase.toCharArray());
+                PEMKeyPair pemKeyPair = encryptedKeyPair.decryptKeyPair(decryptorProvider);
+                System.out.println("[PrivateKeyUtil] Sucesso com PEMEncryptedKeyPair.");
+                return converter.getPrivateKey(pemKeyPair.getPrivateKeyInfo());
+            } else if (object instanceof PEMKeyPair) { 
+                PEMKeyPair pemKeyPair = (PEMKeyPair) object;
+                System.out.println("[PrivateKeyUtil] Sucesso com PEMKeyPair (não criptografado).");
+                return converter.getPrivateKey(pemKeyPair.getPrivateKeyInfo());
+            } else if (object instanceof PrivateKeyInfo) { 
+                PrivateKeyInfo privateKeyInfo = (PrivateKeyInfo) object;
+                System.out.println("[PrivateKeyUtil] Sucesso com PrivateKeyInfo (PKCS#8 não criptografado em PEM).");
+                return converter.getPrivateKey(privateKeyInfo);
+            } else {
+                System.err.println("[PrivateKeyUtil] Falhou: Formato de objeto PEM não suportado: " + object.getClass().getName());
+                return null;
+            }
+        } catch (IOException ioe) { 
+             System.err.println("[PrivateKeyUtil] Falhou (IOException no processamento PEM): " + ioe.getMessage());
+        } catch (OperatorCreationException oce) { 
+            System.err.println("[PrivateKeyUtil] Falhou (OperatorCreationException na descriptografia PEM - senha incorreta ou formato incompatível?): " + oce.getMessage());
+        } catch (PKCSException pkcse) { 
+            System.err.println("[PrivateKeyUtil] Falhou (PKCSException no processamento PEM): " + pkcse.getMessage());
         } catch (Exception e) { 
-            System.err.println("Erro ao carregar/decriptografar a chave privada PKCS#8 a partir de bytes (verifique frase secreta, formato dos bytes): " + e.getMessage());
+            System.err.println("[PrivateKeyUtil] Falhou (Exceção Geral no processamento PEM): " + e.getClass().getName() + " - " + e.getMessage());
+            // e.printStackTrace(); // Descomentar para debug detalhado da falha do PEMParser
         }
+
+        System.err.println("[PrivateKeyUtil] Falha ao carregar a chave privada usando a abordagem PEMParser.");
         return null;
     }
 } 

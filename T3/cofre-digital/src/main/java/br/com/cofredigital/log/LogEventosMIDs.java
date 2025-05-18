@@ -14,6 +14,27 @@ public final class LogEventosMIDs {
     public static final int PARTIDA_SISTEMA_CADASTRO_ADMIN = 1005;
     public static final int PARTIDA_SISTEMA_OPERACAO_NORMAL = 1006;
 
+    // MIDs para Setup do Admin e Validação de Frase Secreta na GUI (1007+)
+    public static final int SETUP_ADMIN_TELA_APRESENTADA_GUI = 1007;
+    public static final int SETUP_ADMIN_BOTAO_CONFIGURAR_PRESSIONADO_GUI = 1008;
+    public static final int SETUP_ADMIN_DADOS_INVALIDOS_GUI = 1009; // Requer motivo
+    public static final int SETUP_ADMIN_CONFIRMACAO_CERTIFICADO_APRESENTADA_GUI = 1010; // Requer dados_certificado
+    public static final int SETUP_ADMIN_CONFIRMACAO_CERTIFICADO_ACEITA_GUI = 1011;
+    public static final int SETUP_ADMIN_CONFIRMACAO_CERTIFICADO_REJEITADA_GUI = 1012;
+    public static final int VALIDATE_ADMIN_PASSPHRASE_TELA_APRESENTADA_GUI = 1013; // GUI pedindo frase do admin
+    public static final int VALIDATE_ADMIN_PASSPHRASE_CANCELADA_GUI = 1014;      // Usuário cancelou input da frase
+    public static final int VALIDATE_ADMIN_PASSPHRASE_FALHA_GUI = 1015;          // Frase fornecida pela GUI falhou na validação do serviço
+    public static final int VALIDATE_ADMIN_PASSPHRASE_SUCESSO_GUI = 1016;        // Frase fornecida pela GUI validada com sucesso
+
+    // MIDs para o fluxo de setup/partida do sistema (backend/serviço)
+    public static final int PARTIDA_SISTEMA_PRIMEIRA_EXECUCAO = 1020; // Indica que o sistema detectou ser a primeira execução
+    public static final int PARTIDA_SISTEMA_CADASTRO_ADMIN_SUCESSO = 1021; // Sucesso no método setupInitialAdmin
+    public static final int PARTIDA_SISTEMA_CADASTRO_ADMIN_FALHA = 1022; // Falha no método setupInitialAdmin
+
+    // Adicionando MIDs que faltaram para o SetupAdminPanel GUI
+    public static final int SETUP_ADMIN_SUCESSO_GUI = 1023; // Sucesso geral do painel de setup do admin
+    public static final int SETUP_ADMIN_FALHA_GERAL_GUI = 1024; // Falha genérica no painel de setup do admin
+
     // Autenticação Etapa 1 - Identificação (2xxx)
     public static final int AUTH_ETAPA1_INICIADA = 2001;
     public static final int AUTH_ETAPA1_ENCERRADA = 2002;
@@ -29,6 +50,9 @@ public final class LogEventosMIDs {
     public static final int AUTH_SENHA_ERRO2 = 3005; // Requer <login_name>
     public static final int AUTH_SENHA_ERRO3 = 3006; // Requer <login_name>
     public static final int AUTH_ACESSO_BLOQUEADO_ETAPA2 = 3007; // Requer <login_name>
+    // Novos MIDs para interação da GUI na Etapa 2
+    public static final int AUTH_ETAPA2_TENTATIVA_LOGIN_GUI = 3008; // Requer email (tentativa)
+    public static final int AUTH_ETAPA2_DADOS_INVALIDOS_GUI = 3009; // Requer email (se disponível), motivo (ex: email_vazio, senha_tamanho)
 
     // Autenticação Etapa 3 - Token (4xxx)
     public static final int AUTH_ETAPA3_INICIADA = 4001; // Requer <login_name>
@@ -42,6 +66,12 @@ public final class LogEventosMIDs {
     public static final int AUTH_ETAPA3_CHAVE_TOTP_DEC_INICIO = 4008; // Requer <login_name>
     public static final int AUTH_ETAPA3_CHAVE_TOTP_DEC_SUCESSO = 4009; // Requer <login_name>
     public static final int AUTH_ETAPA3_CHAVE_TOTP_DEC_FALHA = 4010; // Requer <login_name>
+
+    // Novos MIDs para GUI de Validação TOTP (Etapa 3)
+    public static final int AUTH_ETAPA3_TELA_APRESENTADA_GUI = 4011; // Requer <login_name>
+    public static final int AUTH_ETAPA3_BOTAO_VALIDAR_PRESSIONADO_GUI = 4012; // Requer <login_name>
+    public static final int AUTH_ETAPA3_CODIGO_INVALIDO_FORMATO_GUI = 4013; // Requer <login_name>, codigo_tentativa
+    public static final int AUTH_ETAPA3_BOTAO_VOLTAR_PRESSIONADO_GUI = 4014; // Requer <login_name>
 
     // Tela Principal (5xxx)
     public static final int TELA_PRINCIPAL_APRESENTADA = 5001; // Requer <login_name>
@@ -67,6 +97,13 @@ public final class LogEventosMIDs {
     public static final int CAD_GRUPO_NAO_ENCONTRADO_NOVO_USUARIO = 6104; // Requer gid
     public static final int CAD_USUARIO_SUCESSO = 6105; // Requer uidNovoUsuario, emailNovoUsuario, gidNovoUsuario, kidPadrao, adminUid
     public static final int CAD_USUARIO_SEM_CERTIFICADO_INICIAL = 6106; // Requer email
+
+    // Novos MIDs para GUI de Cadastro de Usuário (continuando na faixa 60xx ou uma nova)
+    // Vamos usar a faixa 601x para distinguir dos logs de backend do UsuarioServico (que podem usar 61xx ou os MIDs CAD_ CERTIFICADO etc.)
+    public static final int CAD_TELA_APRESENTADA_GUI = 6011; // Poderia ter <operador_uid> se aplicável
+    public static final int CAD_BOTAO_CADASTRAR_PRESSIONADO_GUI = 6012; // idem
+    public static final int CAD_DADOS_INVALIDOS_GUI = 6013; // idem, com detalhes do erro
+    public static final int CAD_BOTAO_VOLTAR_LOGIN_PRESSIONADO_GUI = 6014; // idem
 
     // MIDs para gerenciamento de Chaveiro (62xx)
     public static final int CHAVEIRO_SALVAR_INICIO = 6201; // Requer uid
@@ -120,6 +157,7 @@ public final class LogEventosMIDs {
     public static final int SAIR_BOTAO_VOLTAR_MENU_PRINCIPAL = 8004; // Requer <login_name>
     
     // Outros eventos (9xxx) - Ex: Manutenção, erros inesperados não cobertos
+    public static final int SISTEMA_ALERTA = 9000; // Para alertas gerais do sistema, como falha ao deletar temp file.
     // public static final int ERRO_INESPERADO_SISTEMA = 9001; // Requer detalhes
 
 } 

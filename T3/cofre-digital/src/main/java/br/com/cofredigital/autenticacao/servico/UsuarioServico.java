@@ -17,6 +17,7 @@ import br.com.cofredigital.persistencia.modelo.Chaveiro;
 import br.com.cofredigital.persistencia.modelo.Grupo;
 import br.com.cofredigital.log.servico.RegistroServico;
 import br.com.cofredigital.log.LogEventosMIDs;
+import br.com.cofredigital.util.StringUtil;
 
 import javax.crypto.SecretKey;
 import java.io.IOException;
@@ -25,6 +26,8 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.security.PrivateKey;
 import java.security.PublicKey;
+import java.security.SecureRandom;
+import java.security.Signature;
 import java.security.cert.X509Certificate;
 import java.security.cert.CertificateException;
 import java.util.List;
@@ -33,6 +36,7 @@ import java.util.Base64;
 import java.sql.SQLException;
 import java.util.Map;
 import java.time.LocalDateTime;
+import java.security.GeneralSecurityException;
 
 public class UsuarioServico {
 
@@ -354,36 +358,86 @@ public class UsuarioServico {
     public boolean isAdminPassphraseValidatedForSession() {
         return this.adminPassphraseSession != null && !this.adminPassphraseSession.isEmpty();
     }
+
+    public boolean validarChavePrivadaComFrase(String caminhoChavePrivada, String fraseSecreta, X509Certificate certificate) throws Exception {
+        if (StringUtil.isAnyEmpty(caminhoChavePrivada, fraseSecreta) || certificate == null) {
+            // Log de parâmetros inválidos, se necessário
+            // registroServico.registrarEventoDoSistema(MID_VALIDACAO_CHAVE_PARAM_INVALIDOS);
+            return false;
+        }
+        try {
+            // Alterado: Chamar loadPrivateKeyFromPEMFile diretamente
+            PrivateKey privateKey = PrivateKeyUtil.loadEncryptedPKCS8PrivateKey(caminhoChavePrivada, fraseSecreta);
+            
+            if (privateKey == null) {
+                // Frase secreta provavelmente incorreta, não conseguiu decriptografar.
+                // Log apropriado (MID 6006) já é feito pelo SetupAdminPanel se este método retornar false ou lançar exceção.
+                // Poderíamos logar aqui também para consistência interna do serviço, mas evitar duplicação.
+                System.err.println("[UsuarioServico.validarChavePrivadaComFrase] Falha ao carregar/decriptografar chave privada PEM com a frase fornecida. Verifique o caminho e a frase.");
+                return false; 
+            }
+            
+            PublicKey publicKey = certificate.getPublicKey();
+
+            // Validação da assinatura digital de um array aleatório de 8192 bytes
+            SecureRandom random = new SecureRandom();
+            byte[] randomBytes = new byte[8192];
+            random.nextBytes(randomBytes);
+
+            Signature sig = Signature.getInstance("SHA1withRSA"); 
+            sig.initSign(privateKey);
+            sig.update(randomBytes);
+            byte[] digitalSignature = sig.sign();
+
+            sig.initVerify(publicKey);
+            sig.update(randomBytes);
+            
+            boolean validSignature = sig.verify(digitalSignature);
+            if (!validSignature) {
+                 System.err.println("[UsuarioServico.validarChavePrivadaComFrase] Verificação da assinatura da chave falhou.");
+                // Log apropriado (MID 6007) já é feito pelo SetupAdminPanel.
+            }
+            return validSignature;
+
+        } catch (Exception e) {
+            // Outras exceções durante o carregamento ou validação (ex: GeneralSecurityException de Signature).
+            // registroServico.registrarEventoDoSistema(MID_VALIDACAO_CHAVE_ERRO_GERAL, "path_chave", caminhoChavePrivada, "erro", e.getMessage());
+            System.err.println("[UsuarioServico.validarChavePrivadaComFrase] Erro geral na validação: " + e.getMessage());
+            throw e; // Relança
+        }
+    }
     
     public boolean validateAdminPassphrase(String candidatePassphrase) {
         // Log de início da tentativa de validação da frase secreta do admin.
-        // Como pode não haver admin logado, ou ser a primeira execução, UID pode ser nulo.
-        // Poderíamos ter um MID específico para "VALIDACAO_ADMIN_PASSPHRASE_INICIADA"
-        // Por ora, vamos nos concentrar nos logs de falha e sucesso.
+        // MID para "VALIDACAO_ADMIN_PASSPHRASE_INICIADA" pode ser adicionado se desejado.
 
         if (isFirstExecution()) {
+            // Este caso não deveria ser alcançado se MainFrame direciona corretamente para SetupAdminPanel.
+            // No entanto, como uma salvaguarda:
             // Na primeira execução, qualquer frase não vazia é considerada "válida" para prosseguir o setup.
             // Não há chaveiro ainda para comparar.
-            boolean isValid = candidatePassphrase != null && !candidatePassphrase.trim().isEmpty();
+            boolean isValid = !StringUtil.isAnyEmpty(candidatePassphrase);
             if (isValid) {
-                // Log: Frase para setup inicial aceita (não validada contra chaveiro, pois não existe)
-                // registroServico.registrarEventoDoSistema(MID_PASSPHRASE_SETUP_INICIAL_ACEITA);
+                 // Log: Frase para setup inicial aceita (não validada contra chaveiro, pois não existe)
+                 // Idealmente, registrar um MID específico para esta situação, ex: SETUP_PASSPHRASE_PRIMEIRA_EXEC_ACEITA
             } else {
-                // Log: Frase para setup inicial REJEITADA (vazia)
-                // registroServico.registrarEventoDoSistema(MID_PASSPHRASE_SETUP_INICIAL_REJEITADA);
+                 // Log: Frase para setup inicial REJEITADA (vazia)
+                 // Idealmente, registrar um MID específico, ex: SETUP_PASSPHRASE_PRIMEIRA_EXEC_REJEITADA
+                 registroServico.registrarEventoDoSistema(LogEventosMIDs.VALIDATE_ADMIN_PASSPHRASE_FALHA_GUI, "motivo", "Primeira execução, frase vazia para setup.");
             }
             return isValid;
         }
         
-        Long adminUid = null; // Para registrar no log se encontrarmos o admin
+        Long adminUid = null; 
         try {
             List<Usuario> admins = usuarioDAO.listarTodos().stream()
                 .filter(u -> u.getGrupo() != null && "Administrador".equalsIgnoreCase(u.getGrupo()))
                 .toList();
 
             if (admins.isEmpty()) {
-                 System.err.println("[UsuarioServico] Erro crítico: Não é primeira execução, mas nenhum administrador encontrado para validar frase.");
+                System.err.println("[UsuarioServico] Erro crítico: Não é primeira execução, mas nenhum administrador encontrado para validar frase.");
                  // registroServico.registrarEventoDoSistema(MID_ERRO_VALIDACAO_PASSPHRASE_ADMIN_NAO_ENCONTRADO);
+                 //  LogEventosMIDs.VALIDATE_ADMIN_PASSPHRASE_FALHA_GUI (com motivo específico) já será logado pela GUI.
                  return false; 
             }
             Usuario admin = admins.get(0); 
@@ -399,44 +453,72 @@ public class UsuarioServico {
             if (chaveiroAdminOpt.isEmpty()) {
                 System.err.println("[UsuarioServico] Dados do chaveiro não encontrados para o KID do administrador: " + admin.getKid());
                 // registroServico.registrarEventoDoUsuario(MID_ERRO_VALIDACAO_PASSPHRASE_CHAVEIRO_NAO_ENCONTRADO, adminUid, "kid", String.valueOf(admin.getKid()));
-                return false;
+                return false; 
             }
             Chaveiro chaveiroAdmin = chaveiroAdminOpt.get();
             
-            if (candidatePassphrase == null || candidatePassphrase.trim().isEmpty()) {
+            if (StringUtil.isAnyEmpty(candidatePassphrase)) {
                 // Log: Tentativa de validar frase secreta vazia (não primeira execução)
-                registroServico.registrarEventoDoUsuario(LogEventosMIDs.CAD_CHAVE_PRIVADA_FRASE_SECRETA_INVALIDA, adminUid, "motivo", "frase_vazia_ou_nula");
+                // O painel ValidateAdminPassphrasePanel já faz essa validação e log.
+                // No entanto, podemos logar aqui também para o serviço.
+                registroServico.registrarEventoDoUsuario(LogEventosMIDs.CAD_CHAVE_PRIVADA_FRASE_SECRETA_INVALIDA, adminUid, "motivo", "frase_vazia_ou_nula_no_servico");
                 return false;
             }
 
             try {
                 X509Certificate certificate = CertificateUtil.loadCertificateFromPEMString(chaveiroAdmin.getCertificadoPem());
                 PublicKey publicKey = CertificateUtil.getPublicKeyFromCertificate(certificate);
+                // CORREÇÃO: Restaurar para usar loadEncryptedPKCS8PrivateKeyFromBytes pois chaveiroAdmin.getChavePrivadaCriptografada() retorna byte[]
+                // e a senha candidata é 'candidatePassphrase'. A tentativa de edição anterior usou variáveis incorretas aqui.
                 PrivateKey privateKey = PrivateKeyUtil.loadEncryptedPKCS8PrivateKeyFromBytes(chaveiroAdmin.getChavePrivadaCriptografada(), candidatePassphrase);
                 
-                if (privateKey == null) { // Adicionado para cobrir falha de decriptografia explícita
-                     registroServico.registrarEventoDoUsuario(LogEventosMIDs.CAD_CHAVE_PRIVADA_FRASE_SECRETA_INVALIDA, adminUid, "kid", String.valueOf(admin.getKid()));
-                     System.err.println("Falha ao decriptografar chave privada do admin com a frase fornecida.");
+                if (privateKey == null) { 
+                     // Frase secreta incorreta, falha na decriptografia.
+                     // O LogEventosMIDs.CAD_CHAVE_PRIVADA_FRASE_SECRETA_INVALIDA será usado pela GUI / painel chamador.
+                     // Este log aqui é mais para o serviço, se desejado.
+                     System.err.println("[UsuarioServico.validateAdminPassphrase] Falha ao decriptografar chave privada do admin com a frase fornecida.");
+                     // A GUI logará VALIDATE_ADMIN_PASSPHRASE_FALHA_GUI.
                      return false;
                 }
 
-                if (PrivateKeyUtil.validatePrivateKeyWithPublicKey(privateKey, publicKey)) {
+                // Validação da assinatura digital de um array aleatório de 8192 bytes
+                SecureRandom random = new SecureRandom();
+                byte[] randomBytes = new byte[8192];
+                random.nextBytes(randomBytes);
+
+                Signature sig = Signature.getInstance("SHA1withRSA");
+                sig.initSign(privateKey);
+                sig.update(randomBytes);
+                byte[] digitalSignature = sig.sign();
+
+                sig.initVerify(publicKey);
+                sig.update(randomBytes);
+                
+                if (sig.verify(digitalSignature)) {
                     storeAdminPassphraseForSession(candidatePassphrase); 
                     // registroServico.registrarEventoDoUsuario(MID_VALIDACAO_PASSPHRASE_ADMIN_SUCESSO, adminUid);
+                    // Sucesso é logado pela GUI como VALIDATE_ADMIN_PASSPHRASE_SUCESSO_GUI.
                     return true;
                 }
-                // Se chegou aqui, a validação falhou (chave não corresponde ao certificado)
-                registroServico.registrarEventoDoUsuario(LogEventosMIDs.CAD_CHAVE_PRIVADA_ASSINATURA_INVALIDA, adminUid, "kid", String.valueOf(admin.getKid()));
+                
+                // Se chegou aqui, a verificação da assinatura falhou.
+                // A GUI logará VALIDATE_ADMIN_PASSPHRASE_FALHA_GUI.
+                // Poderíamos logar um MID_VALIDACAO_PASSPHRASE_ASSINATURA_FALHA aqui se quiséssemos ser mais granulares no log do serviço.
+                System.err.println("[UsuarioServico.validateAdminPassphrase] Verificação da assinatura da chave do admin falhou.");
                 return false; 
+
             } catch (Exception e) {
-                // Erro durante o processo de decriptografia/validação, provavelmente frase incorreta.
-                registroServico.registrarEventoDoUsuario(LogEventosMIDs.CAD_CHAVE_PRIVADA_FRASE_SECRETA_INVALIDA, adminUid, "kid", String.valueOf(admin.getKid()), "erro", e.getMessage());
-                System.err.println("Falha ao validar frase secreta do admin com dados do chaveiro: " + e.getMessage());
+                // Erro durante o processo de decriptografia/validação (ex: PEM inválido, etc.)
+                // A GUI logará VALIDATE_ADMIN_PASSPHRASE_FALHA_GUI.
+                // Log mais granular no serviço:
+                // registroServico.registrarEventoDoUsuario(MID_ERRO_INTERNO_VALIDACAO_PASSPHRASE, adminUid, "kid", String.valueOf(admin.getKid()), "erro", e.getMessage());
+                System.err.println("[UsuarioServico.validateAdminPassphrase] Exceção durante validação da frase secreta do admin: " + e.getMessage());
                 return false; 
             }
         } catch (SQLException e) {
             // registroServico.registrarEventoDoSistema(MID_ERRO_BD_VALIDACAO_PASSPHRASE, "erro", e.getMessage());
-             throw new RuntimeException("Erro de banco de dados ao validar frase do admin.", e);
+             System.err.println("[UsuarioServico.validateAdminPassphrase] Erro de SQL: " + e.getMessage());
+             throw new RuntimeException("Erro de banco de dados ao validar frase do admin.", e); // Relançar para que a aplicação saiba do erro crítico.
         }
     }
 
@@ -452,10 +534,7 @@ public class UsuarioServico {
             throw new IllegalStateException("Setup do administrador inicial só pode ocorrer na primeira execução.");
         }
 
-        if (caminhoCertificado == null || caminhoCertificado.trim().isEmpty() ||
-            caminhoChavePrivada == null || caminhoChavePrivada.trim().isEmpty() ||
-            fraseSecretaChave == null || fraseSecretaChave.trim().isEmpty() ||
-            senhaPessoal == null || senhaPessoal.trim().isEmpty() ||
+        if (StringUtil.isAnyEmpty(caminhoCertificado, caminhoChavePrivada, fraseSecretaChave, senhaPessoal) ||
             !"Administrador".equalsIgnoreCase(grupoNome)) {
             System.err.println("[UsuarioServico] Dados inválidos fornecidos para setup do admin.");
             throw new IllegalArgumentException("Dados insuficientes ou inválidos para o cadastro do administrador.");
@@ -467,7 +546,7 @@ public class UsuarioServico {
         String nomeDoCertificado;
         String emailDoCertificado;
         String certificadoPemString;
-        byte[] chavePrivadaOriginalCriptografadaBytes;
+        byte[] chavePrivadaOriginalBytesParaChaveiro; 
 
         try {
             System.out.println("[UsuarioServico] Carregando certificado de: " + caminhoCertificado);
@@ -478,19 +557,47 @@ public class UsuarioServico {
             }
             publicKey = CertificateUtil.getPublicKeyFromCertificate(certificate);
             
-            chavePrivadaOriginalCriptografadaBytes = Files.readAllBytes(Paths.get(caminhoChavePrivada));
-            privateKey = PrivateKeyUtil.loadEncryptedPKCS8PrivateKeyFromBytes(chavePrivadaOriginalCriptografadaBytes, fraseSecretaChave);
+            // Alterado: Chamar loadPrivateKeyFromPEMFile diretamente
+            //PrivateKey privateKey = PrivateKeyUtil.loadPrivateKeyFromPEMFile(caminhoChavePrivada, fraseSecreta);
+            // Alterado para usar o método que primeiro decriptografa AES e depois extrai PEM
+            privateKey = PrivateKeyUtil.loadEncryptedPKCS8PrivateKey(caminhoChavePrivada, fraseSecretaChave);
             
             if (privateKey == null) {
                 registroServico.registrarEventoDoSistema(LogEventosMIDs.CAD_CHAVE_PRIVADA_FRASE_SECRETA_INVALIDA, "path_chave", caminhoChavePrivada);
-                throw new SecurityException("Falha ao carregar ou decriptografar a chave privada. Frase secreta pode estar incorreta ou arquivo corrompido.");
+                System.err.println("[UsuarioServico.setupInitialAdmin] Falha ao carregar/decriptografar chave privada PEM. Verifique o caminho e a frase secreta.");
+                throw new SecurityException("Falha ao carregar ou decriptografar a chave privada PEM. Frase secreta pode estar incorreta ou arquivo corrompido/não encontrado.");
             }
 
-            if (!PrivateKeyUtil.validatePrivateKeyWithPublicKey(privateKey, publicKey)) {
-                registroServico.registrarEventoDoSistema(LogEventosMIDs.CAD_CHAVE_PRIVADA_ASSINATURA_INVALIDA, "path_chave", caminhoChavePrivada, "path_cert", caminhoCertificado);
-                throw new SecurityException("Chave privada não corresponde ao certificado.");
+            // Leitura dos bytes da chave privada para o Chaveiro
+            try {
+                chavePrivadaOriginalBytesParaChaveiro = Files.readAllBytes(Paths.get(caminhoChavePrivada));
+            } catch (IOException ioe_interna) {
+                System.err.println("[UsuarioServico.setupInitialAdmin] Erro ao ler os bytes do arquivo da chave privada para armazenamento no chaveiro: " + caminhoChavePrivada + " - " + ioe_interna.getMessage());
+                registroServico.registrarEventoDoSistema(LogEventosMIDs.CAD_CHAVE_PRIVADA_PATH_INVALIDO, "path_chave", caminhoChavePrivada, "erro_leitura_bytes", ioe_interna.getMessage());
+                throw new IOException("Erro ao ler os bytes do arquivo da chave privada para armazenamento: " + ioe_interna.getMessage(), ioe_interna);
             }
 
+            // Validação da assinatura digital ...
+            try {
+                SecureRandom random = new SecureRandom();
+                byte[] randomBytes = new byte[8192];
+                random.nextBytes(randomBytes);
+                Signature sig = Signature.getInstance("SHA1withRSA");
+                sig.initSign(privateKey);
+                sig.update(randomBytes);
+                byte[] digitalSignature = sig.sign();
+                sig.initVerify(publicKey);
+                sig.update(randomBytes);
+                if (!sig.verify(digitalSignature)) {
+                    registroServico.registrarEventoDoSistema(LogEventosMIDs.CAD_CHAVE_PRIVADA_ASSINATURA_INVALIDA, "path_chave", caminhoChavePrivada, "path_cert", caminhoCertificado);
+                    throw new SecurityException("Chave privada não corresponde ao certificado (falha na verificação da assinatura).");
+                }
+                System.out.println("[UsuarioServico] Validação da assinatura da chave privada com a pública bem-sucedida.");
+            } catch (GeneralSecurityException gse) { // Captura exceções de assinatura mais genéricas
+                registroServico.registrarEventoDoSistema(LogEventosMIDs.CAD_CHAVE_PRIVADA_ASSINATURA_INVALIDA, "path_chave", caminhoChavePrivada, "path_cert", caminhoCertificado, "erro_assinatura", gse.getMessage());
+                throw new SecurityException("Erro durante a validação da assinatura da chave privada: " + gse.getMessage(), gse);
+            }
+            
             nomeDoCertificado = CertificateUtil.extractCNFromCertificate(certificate);
             emailDoCertificado = CertificateUtil.extractEmailFromCertificate(certificate);
             if (emailDoCertificado == null || emailDoCertificado.trim().isEmpty()) {
@@ -498,17 +605,23 @@ public class UsuarioServico {
             }
             if (nomeDoCertificado == null || nomeDoCertificado.trim().isEmpty()) nomeDoCertificado = emailDoCertificado; 
 
-            if (usuarioDAO.emailExiste(emailDoCertificado)) { // Usa DAO
+            if (usuarioDAO.emailExiste(emailDoCertificado)) { 
                 throw new EmailJaExisteException("Email do certificado ('" + emailDoCertificado + "') já cadastrado.");
             }
             certificadoPemString = CertificateUtil.convertToPem(certificate);
 
-        } catch (CertificateException | IOException e) {
-            throw new Exception("Erro ao processar arquivos de certificado ou chave privada: " + e.getMessage(), e);
-        } catch (SecurityException e) { 
-             throw e; 
-        } catch (Exception e) {
-            throw new Exception("Erro inesperado no setup criptográfico do admin: " + e.getMessage(), e);
+        } catch (SQLException sqle) { 
+             throw new Exception("Erro de banco de dados durante o setup do admin: " + sqle.getMessage(), sqle);
+        } catch (CertificateException ce) { 
+            throw new Exception("Erro relacionado ao certificado: " + ce.getMessage(), ce);
+        } catch (SecurityException se) { 
+             throw new Exception("Erro de segurança durante o setup do admin: " + se.getMessage(), se); 
+        } catch (EmailJaExisteException ejee) { 
+             throw new Exception("Erro de cadastro: " + ejee.getMessage(), ejee);
+        } catch (RuntimeException re) { 
+             throw new Exception("Erro inesperado durante o setup do admin (runtime): " + re.getMessage(), re);
+        } catch (Exception e) { 
+            throw new Exception("Erro geral inesperado no setup criptográfico do admin: " + e.getMessage(), e);
         }
 
         Usuario adminUsuario = new Usuario();
@@ -529,8 +642,8 @@ public class UsuarioServico {
         }
         Usuario adminSalvo = usuarioDAO.salvar(adminUsuario, adminGrupoOpt.get().getGid());
 
-        // Armazenar no Chaveiro (BD)
-        Chaveiro chaveiroAdmin = new Chaveiro(0, adminSalvo.getId(), certificadoPemString, chavePrivadaOriginalCriptografadaBytes); // KID será gerado pelo BD
+        // Armazenar no Chaveiro (BD) - usar chavePrivadaOriginalBytesParaChaveiro
+        Chaveiro chaveiroAdmin = new Chaveiro(0, adminSalvo.getId(), certificadoPemString, chavePrivadaOriginalBytesParaChaveiro); // KID será gerado pelo BD
         Chaveiro chaveiroSalvo = chaveiroDAO.salvar(chaveiroAdmin); // Salva e obtém KID
         
         // Atualizar o usuário admin com o KID do seu chaveiro principal
@@ -659,11 +772,11 @@ public class UsuarioServico {
         X509Certificate certificate = null;
         PrivateKey privateKey = null;
         String certificadoPemString = null;
-        byte[] chavePrivadaOriginalCriptografadaBytes = null;
+        byte[] chavePrivadaBytesParaChaveiro = null; // Renomeado para clareza
 
         if (caminhoCertificado != null && !caminhoCertificado.trim().isEmpty() &&
             caminhoChavePrivada != null && !caminhoChavePrivada.trim().isEmpty() &&
-            fraseSecretaChave != null && !fraseSecretaChave.trim().isEmpty()) {
+            fraseSecretaChave != null) { // Permitir frase secreta vazia se a chave PEM não for criptografada
             
             System.out.println("[UsuarioServico] Processando certificado e chave para: " + email);
             try {
@@ -674,12 +787,24 @@ public class UsuarioServico {
                 }
 
                 PublicKey publicKey = CertificateUtil.getPublicKeyFromCertificate(certificate);
-                chavePrivadaOriginalCriptografadaBytes = Files.readAllBytes(Paths.get(caminhoChavePrivada));
-                privateKey = PrivateKeyUtil.loadEncryptedPKCS8PrivateKeyFromBytes(chavePrivadaOriginalCriptografadaBytes, fraseSecretaChave);
+                // Alterado: Chamar loadPrivateKeyFromPEMFile diretamente
+                //privateKey = PrivateKeyUtil.loadPrivateKeyFromPEMFile(caminhoChavePrivada, fraseSecretaChave);
+                // Alterado para usar o método que primeiro decriptografa AES e depois extrai PEM
+                privateKey = PrivateKeyUtil.loadEncryptedPKCS8PrivateKey(caminhoChavePrivada, fraseSecretaChave);
 
                 if (privateKey == null) {
                     registroServico.registrarEventoDoSistema(LogEventosMIDs.CAD_CHAVE_PRIVADA_FRASE_SECRETA_INVALIDA, "email", email, "path_chave", caminhoChavePrivada);
-                    throw new SecurityException("Falha ao carregar ou decriptografar a chave privada para " + email + ". Frase secreta pode estar incorreta ou arquivo corrompido.");
+                    System.err.println("[UsuarioServico.cadastrarNovoUsuario] Falha ao carregar/decriptografar chave privada PEM para " + email);
+                    throw new SecurityException("Falha ao carregar ou decriptografar a chave privada PEM para " + email + ". Frase secreta pode estar incorreta ou arquivo corrompido/não encontrado.");
+                }
+                
+                // Para armazenar no Chaveiro, precisamos dos bytes originais do arquivo da chave privada.
+                try {
+                    chavePrivadaBytesParaChaveiro = Files.readAllBytes(Paths.get(caminhoChavePrivada));
+                } catch (IOException ioe) {
+                    System.err.println("[UsuarioServico.cadastrarNovoUsuario] Erro ao ler os bytes do arquivo da chave privada para armazenamento no chaveiro (" + email + "): " + caminhoChavePrivada + " - " + ioe.getMessage());
+                    registroServico.registrarEventoDoSistema(LogEventosMIDs.CAD_CHAVE_PRIVADA_PATH_INVALIDO, "email", email, "path_chave", caminhoChavePrivada, "erro_leitura_bytes", ioe.getMessage());
+                    throw new IOException("Erro ao ler os bytes do arquivo da chave privada para armazenamento ("+email+"): " + ioe.getMessage(), ioe);
                 }
 
                 if (!PrivateKeyUtil.validatePrivateKeyWithPublicKey(privateKey, publicKey)) {
@@ -720,8 +845,8 @@ public class UsuarioServico {
         Usuario usuarioSalvo = usuarioDAO.salvar(novoUsuario, gid);
 
         Integer kidSalvo = null;
-        if (certificate != null && privateKey != null && certificadoPemString != null && chavePrivadaOriginalCriptografadaBytes != null) {
-            Chaveiro novoChaveiro = new Chaveiro(0, usuarioSalvo.getId(), certificadoPemString, chavePrivadaOriginalCriptografadaBytes);
+        if (certificate != null && privateKey != null && certificadoPemString != null && chavePrivadaBytesParaChaveiro != null) {
+            Chaveiro novoChaveiro = new Chaveiro(0, usuarioSalvo.getId(), certificadoPemString, chavePrivadaBytesParaChaveiro);
             Chaveiro chaveiroSalvo = chaveiroDAO.salvar(novoChaveiro);
             usuarioDAO.atualizarKidPadrao(usuarioSalvo.getId(), chaveiroSalvo.getKid());
             usuarioSalvo.setKid(chaveiroSalvo.getKid()); 

@@ -11,6 +11,8 @@ import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
 import java.util.Base64;
 import java.nio.charset.StandardCharsets;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class CertificateUtil {
 
@@ -29,22 +31,37 @@ public class CertificateUtil {
     public static X509Certificate loadCertificateFromFile(String filePath) 
             throws IOException, CertificateException {
         if (filePath == null || filePath.trim().isEmpty()) {
-            throw new IllegalArgumentException("O caminho do arquivo do certificado não pode ser nulo ou vazio.");
+            System.err.println("Caminho do arquivo de certificado não pode ser nulo ou vazio.");
+            throw new IllegalArgumentException("Caminho do arquivo de certificado não pode ser nulo ou vazio.");
         }
 
-        String pemContent = new String(Files.readAllBytes(Paths.get(filePath)));
+        String fileContent = new String(Files.readAllBytes(Paths.get(filePath)), StandardCharsets.UTF_8);
 
-        // Remove cabeçalho, rodapé e quebras de linha do conteúdo PEM
-        String base64Encoded = pemContent
-                .replace("-----BEGIN CERTIFICATE-----", "")
-                .replace("-----END CERTIFICATE-----", "")
-                .replaceAll("\\s", ""); // Remove todos os espaços em branco (incluindo quebras de linha)
+        Pattern pattern = Pattern.compile(
+            "-----BEGIN CERTIFICATE-----(.+?)-----END CERTIFICATE-----",
+            Pattern.DOTALL
+        );
+        Matcher matcher = pattern.matcher(fileContent);
 
-        byte[] decodedDerBytes = Base64.getDecoder().decode(base64Encoded);
-
-        CertificateFactory certificateFactory = CertificateFactory.getInstance("X.509");
-        try (InputStream inStream = new ByteArrayInputStream(decodedDerBytes)) {
-            return (X509Certificate) certificateFactory.generateCertificate(inStream);
+        if (matcher.find()) {
+            String pemBlock = matcher.group(1); 
+            String base64Content = pemBlock.replaceAll("\\s", "").replaceAll("\\r", "").replaceAll("\\n", "");
+            
+            byte[] decoded = Base64.getDecoder().decode(base64Content);
+            CertificateFactory cf = CertificateFactory.getInstance("X.509");
+            return (X509Certificate) cf.generateCertificate(new ByteArrayInputStream(decoded));
+        } else {
+            // Se o bloco PEM não for encontrado, tenta carregar como um fluxo de certificado direto (para DER, por exemplo)
+            // Isso é uma tentativa de fallback, pode ou não ser relevante para os arquivos do professor
+            try (InputStream fis = new FileInputStream(filePath)){
+                CertificateFactory cf = CertificateFactory.getInstance("X.509");
+                return (X509Certificate) cf.generateCertificate(fis);
+            } catch (IOException | CertificateException e_fallback) {
+                System.err.println("Bloco PEM de certificado não encontrado no arquivo E falha ao carregar como fluxo direto: " + filePath);
+                System.err.println("Erro original da busca PEM: Nenhum bloco encontrado.");
+                System.err.println("Erro do fallback (fluxo direto): " + e_fallback.getMessage());
+                throw new CertificateException("Não foi possível carregar o certificado do arquivo: nem como PEM extraído, nem como fluxo direto. Arquivo: " + filePath, e_fallback);
+            }
         }
     }
 
@@ -83,41 +100,77 @@ public class CertificateUtil {
      */
     public static String extractEmailFromCertificate(X509Certificate cert) {
         if (cert == null) {
+            System.err.println("[CertificateUtil.extractEmail] Certificado é nulo.");
             return null;
         }
+        System.out.println("[CertificateUtil.extractEmail] Tentando extrair email do certificado: " + cert.getSubjectX500Principal().getName());
 
-        // 1. Tentar extrair do SubjectAlternativeName (SAN) - Tipo rfc822Name (tag 1)
+        // 1. Tentar extrair do SubjectAlternativeName (SAN)
         try {
             if (cert.getSubjectAlternativeNames() != null) {
+                System.out.println("[CertificateUtil.extractEmail] Verificando SubjectAlternativeNames (SAN)...");
                 for (java.util.List<?> sanItem : cert.getSubjectAlternativeNames()) {
                     if (sanItem != null && sanItem.size() >= 2) {
                         Integer tag = (Integer) sanItem.get(0);
                         Object value = sanItem.get(1);
-                        // Tag 1 é para rfc822Name (email)
                         if (tag != null && tag == 1 && value instanceof String) {
+                            System.out.println("[CertificateUtil.extractEmail] Email encontrado na SAN: " + (String) value);
                             return (String) value;
                         }
                     }
                 }
+                System.out.println("[CertificateUtil.extractEmail] Email não encontrado na SAN após iteração.");
+            } else {
+                System.out.println("[CertificateUtil.extractEmail] SubjectAlternativeNames (SAN) está nulo.");
             }
         } catch (CertificateException e) {
-            // Logar ou tratar o erro se a extensão SAN for malformada, mas continuar para o DN
-            System.err.println("Erro ao processar SubjectAlternativeNames: " + e.getMessage());
+            System.err.println("[CertificateUtil.extractEmail] Erro ao processar SubjectAlternativeNames: " + e.getMessage());
         }
 
-        // 2. Se não encontrado na SAN, tentar extrair do SubjectDN (campos E ou EMAILADDRESS)
+        // 2. Se não encontrado na SAN, tentar extrair do SubjectDN
         String subjectDN = cert.getSubjectX500Principal().getName();
+        System.out.println("[CertificateUtil.extractEmail] SubjectDN completo: '" + subjectDN + "'");
         String[] dnComponents = subjectDN.split(",");
+        System.out.println("[CertificateUtil.extractEmail] SubjectDN componentes (após split por vírgula):");
+        for (int i = 0; i < dnComponents.length; i++) {
+            System.out.println("  Componente[" + i + "]: '" + dnComponents[i] + "'");
+        }
+
         for (String component : dnComponents) {
             String trimmedComponent = component.trim();
+            System.out.println("[CertificateUtil.extractEmail] Processando DN component (trimmed): '" + trimmedComponent + "'");
             if (trimmedComponent.toUpperCase().startsWith("E=")) {
-                return trimmedComponent.substring(2);
+                String email = trimmedComponent.substring(2);
+                System.out.println("[CertificateUtil.extractEmail] Email encontrado por E=: " + email);
+                return email;
             } else if (trimmedComponent.toUpperCase().startsWith("EMAILADDRESS=")) {
-                return trimmedComponent.substring(13);
+                String email = trimmedComponent.substring(13);
+                System.out.println("[CertificateUtil.extractEmail] Email encontrado por EMAILADDRESS=: " + email);
+                return email;
+            } else if (trimmedComponent.toUpperCase().startsWith("CN=")) {
+                System.out.println("[CertificateUtil.extractEmail] Componente CN encontrado: '" + trimmedComponent + "'");
+                int emailMarkerPos = trimmedComponent.indexOf("/emailAddress="); 
+                System.out.println("[CertificateUtil.extractEmail] Posição de '/emailAddress=' no CN: " + emailMarkerPos);
+                if (emailMarkerPos != -1) {
+                    String email = trimmedComponent.substring(emailMarkerPos + "/emailAddress=".length()); 
+                    System.out.println("[CertificateUtil.extractEmail] Email extraído do CN via /emailAddress=: " + email);
+                    return email; 
+                }
             }
         }
+        System.out.println("[CertificateUtil.extractEmail] Email não encontrado após análise dos componentes do SubjectDN.");
 
-        return null; // Email não encontrado
+        // 3. Fallback com regex no SubjectDN completo
+        System.out.println("[CertificateUtil.extractEmail] Tentando fallback com regex no SubjectDN completo...");
+        Pattern emailPattern = Pattern.compile("(?:E=|EMAILADDRESS=|OID\\.1\\.2\\.840\\.113549\\.1\\.9\\.1=)([^,]+)", Pattern.CASE_INSENSITIVE);
+        Matcher matcher = emailPattern.matcher(subjectDN); 
+        if (matcher.find()) {
+            String email = matcher.group(1);
+            System.out.println("[CertificateUtil.extractEmail] Email encontrado via fallback regex: " + email);
+            return email;
+        }
+        System.out.println("[CertificateUtil.extractEmail] Email NÃO encontrado por nenhuma estratégia.");
+        return null;
     }
 
     /**

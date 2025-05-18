@@ -9,6 +9,8 @@ import java.util.Arrays; // Importar explicitamente se PasswordUtil for removido
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.ActionEvent;
+import br.com.cofredigital.log.servico.RegistroServico;
+import br.com.cofredigital.log.LogEventosMIDs;
 
 public class LoginPanel extends JPanel {
     private final JTextField emailField;
@@ -17,11 +19,13 @@ public class LoginPanel extends JPanel {
     private final JLabel statusLabel;
     private final TecladoVirtualPanel tecladoVirtualPanel;
     private final UsuarioServico usuarioServico;
+    private final RegistroServico registroServico;
     // Duplicando a constante para uso na mensagem de feedback, ou torná-la pública em UsuarioServico
     private static final int MAX_TENTATIVAS_SENHA_CONFIG = 3; 
 
-    public LoginPanel(UsuarioServico usuarioServico) {
+    public LoginPanel(UsuarioServico usuarioServico, RegistroServico registroServico) {
         this.usuarioServico = usuarioServico;
+        this.registroServico = registroServico;
 
         // Inicializar componentes de UI que NÃO dependem do teclado virtual diretamente para o callback
         emailField = new JTextField(20);
@@ -73,51 +77,53 @@ public class LoginPanel extends JPanel {
         // Action Listeners
         loginButton.addActionListener((ActionEvent e) -> {
             String email = emailField.getText().trim();
-            // Acessa tecladoVirtualPanel do LoginPanel
             List<Character[]> sequenciaPares = this.tecladoVirtualPanel.getSequenciaDeParesSelecionados();
+
+            // Log da tentativa de login pela GUI
+            // UID é desconhecido neste ponto, então registramos como evento do sistema ou com UID nulo.
+            this.registroServico.registrarEventoDoSistema(LogEventosMIDs.AUTH_ETAPA2_TENTATIVA_LOGIN_GUI, "email_tentativa", email);
 
             if (email.isEmpty()) {
                 statusLabel.setForeground(Color.RED);
                 statusLabel.setText("Email não pode estar vazio.");
+                this.registroServico.registrarEventoDoSistema(LogEventosMIDs.AUTH_ETAPA2_DADOS_INVALIDOS_GUI, "email_tentativa", email, "motivo", "email_vazio");
                 return;
             }
             
             if (sequenciaPares.size() < 8 || sequenciaPares.size() > 10) {
                 statusLabel.setForeground(Color.RED);
                 statusLabel.setText("Senha deve ter entre 8 e 10 dígitos.");
+                this.registroServico.registrarEventoDoSistema(LogEventosMIDs.AUTH_ETAPA2_DADOS_INVALIDOS_GUI, "email_tentativa", email, "motivo", "senha_tamanho_invalido");
                 return;
             }
 
             try {
-                statusLabel.setText("Verificando..."); // Feedback imediato
+                statusLabel.setText("Verificando...");
                 Optional<String> senhaAutenticadaOpt = usuarioServico.autenticarComTecladoVirtual(email, sequenciaPares);
+
+                // Os logs detalhados de sucesso (AUTH_SENHA_OK) ou falha (AUTH_SENHA_ERRO1/2/3, AUTH_LOGIN_BLOQUEADO)
+                // já são feitos DENTRO de usuarioServico.autenticarComTecladoVirtual.
+                // Aqui, a GUI apenas reage ao resultado.
 
                 if (senhaAutenticadaOpt.isPresent()) {
                     String senhaPlanaAutenticada = senhaAutenticadaOpt.get(); 
                     statusLabel.setForeground(Color.GREEN);
                     statusLabel.setText("Login realizado com sucesso! Prosseguindo...");
-                    
-                    onLoginSuccess(email, senhaPlanaAutenticada); // Passa email e senha para a próxima etapa
-                    
-                    // Limpar campos após sucesso para segurança e nova entrada.
-                    // emailField.setText(""); // Opcional: limpar email ou não
-                    tecladoVirtualPanel.limparSenha(); // Limpa o teclado virtual
-
+                    onLoginSuccess(email, senhaPlanaAutenticada); 
+                    tecladoVirtualPanel.limparSenha();
                 } else {
+                    // A lógica de feedback da GUI permanece, baseada no estado do usuário retornado implicitamente pela falha.
                     Usuario usuario = usuarioServico.buscarPorEmail(email); 
                     statusLabel.setForeground(Color.RED);
                     if (usuario != null && usuario.isAcessoBloqueado()) {
                         statusLabel.setText("Conta bloqueada por 2 minutos. Tente mais tarde.");
                     } else if (usuario == null) {
                         statusLabel.setText("Email não cadastrado."); 
-                    } else { // Usuário existe, não está bloqueado, mas a senha falhou
+                    } else { 
                         int tentativasRestantes = MAX_TENTATIVAS_SENHA_CONFIG - usuario.getTentativasFalhasSenha();
                         if (usuario.getTentativasFalhasSenha() < MAX_TENTATIVAS_SENHA_CONFIG) {
                             statusLabel.setText("Email ou senha incorreta. Tentativas restantes: " + (tentativasRestantes > 0 ? tentativasRestantes : 0));
                         } else {
-                            // Esta mensagem pode ser redundante se a anterior de bloqueio já foi exibida após o bloqueio efetivo.
-                            // No entanto, se o bloqueio ocorreu nesta exata tentativa, o UsuarioServiço já bloqueou.
-                            // O próximo login já cairia no if (usuario.isAcessoBloqueado())
                             statusLabel.setText("Email ou senha incorreta. Conta será bloqueada na próxima falha ou já está.");
                         }
                     }
@@ -126,6 +132,9 @@ public class LoginPanel extends JPanel {
             } catch (Exception ex) {
                 statusLabel.setForeground(Color.RED);
                 statusLabel.setText("Erro durante o login: " + ex.getMessage());
+                // Log de erro inesperado na GUI durante o login
+                // Poderíamos ter um MID_ERRO_INESPERADO_LOGIN_GUI
+                this.registroServico.registrarEventoDoSistema(LogEventosMIDs.AUTH_ETAPA2_ENCERRADA, "email_tentativa", email, "resultado", "excecao_gui", "erro", ex.getMessage());
                 ex.printStackTrace(); 
                 if (this.tecladoVirtualPanel != null) {
                      this.tecladoVirtualPanel.limparSenha();
@@ -134,6 +143,8 @@ public class LoginPanel extends JPanel {
         });
 
         cadastroButton.addActionListener((ActionEvent e) -> {
+            // Log de clique no botão de ir para cadastro
+            // this.registroServico.registrarEventoDoSistema(MID_CLIQUE_BOTAO_IR_CADASTRO_LOGIN_PANEL);
             onGoToCadastro();
         });
     }

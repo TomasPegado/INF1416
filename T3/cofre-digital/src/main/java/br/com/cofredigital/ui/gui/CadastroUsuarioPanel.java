@@ -2,6 +2,8 @@ package br.com.cofredigital.ui.gui;
 
 import br.com.cofredigital.autenticacao.modelo.Usuario;
 import br.com.cofredigital.autenticacao.servico.UsuarioServico;
+import br.com.cofredigital.log.servico.RegistroServico;
+import br.com.cofredigital.log.LogEventosMIDs;
 
 import javax.swing.*;
 import java.awt.*;
@@ -22,8 +24,13 @@ public class CadastroUsuarioPanel extends JPanel {
     private final JButton cadastrarButton = new JButton("Cadastrar");
     private final JButton voltarLoginButton = new JButton("Voltar para Login");
     private final JLabel statusLabel = new JLabel(" ");
+    private final UsuarioServico usuarioServico;
+    private final RegistroServico registroServico;
 
-    public CadastroUsuarioPanel(UsuarioServico usuarioServico) {
+    public CadastroUsuarioPanel(UsuarioServico usuarioServico, RegistroServico registroServico) {
+        this.usuarioServico = usuarioServico;
+        this.registroServico = registroServico;
+
         setLayout(new GridBagLayout());
         GridBagConstraints gbc = new GridBagConstraints();
         gbc.insets = new Insets(5,5,5,5);
@@ -96,27 +103,26 @@ public class CadastroUsuarioPanel extends JPanel {
         add(statusLabel, gbc);
 
         cadastrarButton.addActionListener((ActionEvent e) -> {
+            this.registroServico.registrarEventoDoSistema(LogEventosMIDs.CAD_BOTAO_CADASTRAR_PRESSIONADO_GUI);
+
             String nome = nomeField.getText().trim();
             String email = emailField.getText().trim();
             String senha = new String(senhaField.getPassword());
             String confirmarSenha = new String(confirmarSenhaField.getPassword());
-
-            // Coletar dados dos novos campos
             String caminhoCertificado = getCaminhoCertificado();
             String caminhoChavePrivada = getCaminhoChavePrivada();
             String fraseSecreta = getFraseSecreta();
-            String grupo = getGrupoSelecionado();
 
-            // Validar todos os campos
             if (nome.isEmpty() || email.isEmpty() || 
-                caminhoCertificado.isEmpty() || caminhoChavePrivada.isEmpty() || 
-                fraseSecreta.isEmpty() || // Frase secreta também é obrigatória
+                (this.isVisible() && !isModoAdminInicial() && (caminhoCertificado.isEmpty() || caminhoChavePrivada.isEmpty() || fraseSecreta.isEmpty())) ||
                 senha.isEmpty() || confirmarSenha.isEmpty()) {
                 statusLabel.setText("Preencha todos os campos obrigatórios.");
+                this.registroServico.registrarEventoDoSistema(LogEventosMIDs.CAD_DADOS_INVALIDOS_GUI, "motivo", "campos_obrigatorios_vazios");
                 return;
             }
             if (!senha.equals(confirmarSenha)) {
                 statusLabel.setText("As senhas não coincidem.");
+                this.registroServico.registrarEventoDoSistema(LogEventosMIDs.CAD_DADOS_INVALIDOS_GUI, "email_tentativa", email, "motivo", "senhas_nao_coincidem");
                 return;
             }
             
@@ -130,7 +136,7 @@ public class CadastroUsuarioPanel extends JPanel {
                 // Por enquanto, usamos o campo nome, mas isso será ajustado.
                 usuario.setNome(nome); 
                 usuario.setEmail(email); // O email também virá do certificado.
-                usuario.setGrupo(grupo); // Assumindo que Usuario tem setGrupo
+                usuario.setGrupo(getGrupoSelecionado());
 
                 // A lógica de cadastro real é complexa e será tratada no UsuarioServico:
                 // 1. Ler certificado de caminhoCertificado.
@@ -150,7 +156,7 @@ public class CadastroUsuarioPanel extends JPanel {
                 System.out.println("Caminho Cert.: " + caminhoCertificado);
                 System.out.println("Caminho Chave: " + caminhoChavePrivada);
                 System.out.println("Frase Secreta: " + fraseSecreta.replaceAll(".", "*")); // Não logar frase real
-                System.out.println("Grupo: " + grupo);
+                System.out.println("Grupo: " + getGrupoSelecionado());
                 System.out.println("Senha Pessoal: " + senha.replaceAll(".", "*"));
                 System.out.println("-------------------------------------");
                 
@@ -177,6 +183,7 @@ public class CadastroUsuarioPanel extends JPanel {
         });
 
         voltarLoginButton.addActionListener((ActionEvent e) -> {
+            this.registroServico.registrarEventoDoSistema(LogEventosMIDs.CAD_BOTAO_VOLTAR_LOGIN_PRESSIONADO_GUI);
             onGoToLogin();
         });
     }
@@ -229,6 +236,12 @@ public class CadastroUsuarioPanel extends JPanel {
             // Garantir que a seleção padrão seja "Usuário" ou permitir seleção livre
             // grupoComboBox.setSelectedItem("Usuário"); // Opcional
         }
+    }
+
+    private boolean isModoAdminInicial() {
+        // Helper para verificar se o painel está configurado para cadastro de admin inicial
+        // Isso normalmente seria determinado por uma propriedade ou estado gerenciado pelo MainFrame
+        return !grupoComboBox.isEnabled() && "Administrador".equals(grupoComboBox.getSelectedItem());
     }
 
     // Callbacks para serem sobrescritos pelo MainFrame
