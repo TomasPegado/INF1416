@@ -19,12 +19,11 @@
 - [x] Implementar painel de cadastro Swing (`CadastroUsuarioPanel`)
 - [x] Implementar serviço de gerenciamento de usuários (em memória ou arquivo)
 - [x] Implementar painel de login Swing (`LoginPanel`)
-- [ ] Implementar validação e armazenamento de certificado digital e chave privada (PKCS8/X.509, UID/KID, formato seguro, criptografia AES-256, frase secreta)
-- [ ] Implementar validação da frase secreta da chave privada (assinatura digital de array aleatório)
-- [ ] Implementar armazenamento do certificado digital em PEM e chave privada criptografada na base de dados (tabela Chaveiro)
-- [ ] Implementar geração e armazenamento do KID e associação ao UID do usuário
-- [ ] Implementar restrição de senha pessoal (8-10 dígitos, sem repetições, validação)
-- [ ] Implementar armazenamento da senha pessoal com hash bcrypt (2y, custo 8, salt/hash em BASE64)
+- [x] Implementar validação e armazenamento de certificado digital e chave privada (PKCS8/X.509, UID/KID, formato seguro, criptografia AES-256, frase secreta)
+- [x] Implementar validação da frase secreta da chave privada (assinatura digital de array aleatório)
+- [x] Implementar armazenamento do certificado digital em PEM e chave privada criptografada na base de dados (tabela Chaveiro)
+- [x] Implementar geração e armazenamento do KID e associação ao UID do usuário
+- [x] Implementar armazenamento da senha pessoal com hash bcrypt (2y, custo 8, salt/hash em BASE64)
 
 ### 2.2 Autenticação Bi-fator (TOTP)
 - [x] Implementar sistema de autenticação por senha
@@ -32,7 +31,7 @@
 - [ ] Implementar geração de chave TOTP (20 bytes aleatórios, BASE32, criptografada com AES-256 derivada da senha pessoal)
 - [ ] Implementar armazenamento seguro da chave TOTP no registro do usuário
 - [ ] Implementar classe TOTP própria (sem libs externas, conforme especificação)
-- [ ] Implementar interface de exibição do segredo TOTP (BASE32) e QRCode opcional
+- [x] Implementar interface de exibição do segredo TOTP (BASE32) e QRCode opcional
 - [x] Integrar biblioteca TOTP para segunda etapa de autenticação
 - [x] Implementar painel/interface de verificação TOTP
 - [x] Desenvolver gerador de QR Code para configuração inicial do TOTP
@@ -51,7 +50,7 @@
 ## 3. Módulo de Armazenamento Seguro
 
 ### 3.1 Criptografia e Indexação
-- [ ] Implementar gerenciador de chaves criptográficas (AES-256, SHA1PRNG, derivação de senha/frase secreta)
+- [x] Implementar gerenciador de chaves criptográficas (AES-256, SHA1PRNG, derivação de senha/frase secreta)
 - [ ] Implementar sistema de criptografia de arquivos (AES-256/ECB/PKCS5Padding)
 - [ ] Implementar geração e validação de envelope digital para arquivos e índice (proteção da semente SHA1PRNG)
 - [ ] Implementar assinatura digital de arquivos e índice (Signature, chave assimétrica do usuário)
@@ -85,11 +84,11 @@
 
 ## 5. Módulo de Auditoria e Logs
 
-- [ ] Implementar classe de modelo `Evento` (registro de operações)
+- [x] Implementar classe de modelo `Evento` (registro de operações)
 - [ ] Implementar painel de visualização de eventos
-- [ ] Implementar serviço de eventos de auditoria (em memória ou arquivo)
+- [x] Implementar serviço de eventos de auditoria (em memória ou arquivo)
 - [ ] Implementar interface de consulta de eventos
-- [ ] Desenvolver sistema de registro de atividades conforme tabela de mensagens (RID, MID, data/hora, usuário, arquivo)
+- [x] Implementar sistema de registro de atividades conforme tabela de mensagens (RID, MID, data/hora, usuário, arquivo)
 - [ ] Implementar interface de relatórios de atividades
 - [ ] Implementar gerador de relatórios de auditoria
 - [ ] Implementar interface de exportação/visualização de relatórios
@@ -99,9 +98,9 @@
 
 ## 6. Banco de Dados e Integração
 
-- [ ] Implementar estrutura das tabelas: Usuarios, Chaveiro, Grupos, Mensagens, Registros
-- [ ] Garantir relacionamento correto entre UID, KID, GID, MID, RID
-- [ ] Implementar persistência e recuperação dos dados conforme especificação
+- [x] Implementar estrutura das tabelas: Usuarios, Chaveiro, Grupos, Mensagens, Registros
+- [x] Garantir relacionamento correto entre UID, KID, GID, MID, RID
+- [x] Implementar persistência e recuperação dos dados conforme especificação
 - [ ] Verificar integração entre autenticação, armazenamento, controle de acesso e auditoria (backend)
 - [ ] Verificar integração entre autenticação, armazenamento, controle de acesso e auditoria (interface)
 - [ ] Desenvolver testes de fluxo completo da aplicação (manual ou automatizado)

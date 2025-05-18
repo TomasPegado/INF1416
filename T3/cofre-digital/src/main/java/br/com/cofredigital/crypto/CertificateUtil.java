@@ -156,6 +156,23 @@ public class CertificateUtil {
                     System.out.println("[CertificateUtil.extractEmail] Email extraído do CN via /emailAddress=: " + email);
                     return email; 
                 }
+            } else if (trimmedComponent.startsWith("1.2.840.113549.1.9.1=#")) {
+                // OID de e-mail em hexadecimal
+                String hex = trimmedComponent.substring("1.2.840.113549.1.9.1=#".length());
+                // Remove prefixo ASN.1 OCTET STRING (16) se presente
+                if (hex.startsWith("16")) {
+                    hex = hex.substring(2);
+                }
+                // Converter hex para string
+                StringBuilder emailBuilder = new StringBuilder();
+                for (int i = 0; i < hex.length() - 1; i += 2) {
+                    String byteStr = hex.substring(i, i + 2);
+                    int byteVal = Integer.parseInt(byteStr, 16);
+                    emailBuilder.append((char) byteVal);
+                }
+                String email = emailBuilder.toString();
+                System.out.println("[CertificateUtil.extractEmail] Email extraído do OID 1.2.840.113549.1.9.1: " + email);
+                return email;
             }
         }
         System.out.println("[CertificateUtil.extractEmail] Email não encontrado após análise dos componentes do SubjectDN.");
