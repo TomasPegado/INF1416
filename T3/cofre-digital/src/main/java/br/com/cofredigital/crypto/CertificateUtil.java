@@ -115,7 +115,14 @@ public class CertificateUtil {
                         Object value = sanItem.get(1);
                         if (tag != null && tag == 1 && value instanceof String) {
                             System.out.println("[CertificateUtil.extractEmail] Email encontrado na SAN: " + (String) value);
-                            return (String) value;
+                            String email = (String) value;
+                            // LIMPEZA DO EMAIL EXTRAÍDO DA SAN
+                            String cleanedEmail = email.replaceAll("^[\\p{C}\\s\\uFEFF]+|[\\p{C}\\s\\uFEFF]+$", "").trim();
+                            if (!email.equals(cleanedEmail)) {
+                                System.out.println("[CertificateUtil.extractEmail] Email original (SAN): '" + email + "'");
+                                System.out.println("[CertificateUtil.extractEmail] Email após limpeza (SAN): '" + cleanedEmail + "'");
+                            }
+                            return cleanedEmail; // Retorna o email limpo
                         }
                     }
                 }
@@ -142,11 +149,23 @@ public class CertificateUtil {
             if (trimmedComponent.toUpperCase().startsWith("E=")) {
                 String email = trimmedComponent.substring(2);
                 System.out.println("[CertificateUtil.extractEmail] Email encontrado por E=: " + email);
-                return email;
+                // LIMPEZA DO EMAIL EXTRAÍDO DO 'E='
+                String cleanedEmail = email.replaceAll("^[\\p{C}\\s\\uFEFF]+|[\\p{C}\\s\\uFEFF]+$", "").trim();
+                if (!email.equals(cleanedEmail)) {
+                    System.out.println("[CertificateUtil.extractEmail] Email original (E=): '" + email + "'");
+                    System.out.println("[CertificateUtil.extractEmail] Email após limpeza (E=): '" + cleanedEmail + "'");
+                }
+                return cleanedEmail; // Retorna o email limpo
             } else if (trimmedComponent.toUpperCase().startsWith("EMAILADDRESS=")) {
                 String email = trimmedComponent.substring(13);
                 System.out.println("[CertificateUtil.extractEmail] Email encontrado por EMAILADDRESS=: " + email);
-                return email;
+                // LIMPEZA DO EMAIL EXTRAÍDO DO 'EMAILADDRESS='
+                String cleanedEmail = email.replaceAll("^[\\p{C}\\s\\uFEFF]+|[\\p{C}\\s\\uFEFF]+$", "").trim();
+                if (!email.equals(cleanedEmail)) {
+                    System.out.println("[CertificateUtil.extractEmail] Email original (EMAILADDRESS=): '" + email + "'");
+                    System.out.println("[CertificateUtil.extractEmail] Email após limpeza (EMAILADDRESS=): '" + cleanedEmail + "'");
+                }
+                return cleanedEmail; // Retorna o email limpo
             } else if (trimmedComponent.toUpperCase().startsWith("CN=")) {
                 System.out.println("[CertificateUtil.extractEmail] Componente CN encontrado: '" + trimmedComponent + "'");
                 int emailMarkerPos = trimmedComponent.indexOf("/emailAddress="); 
@@ -154,7 +173,13 @@ public class CertificateUtil {
                 if (emailMarkerPos != -1) {
                     String email = trimmedComponent.substring(emailMarkerPos + "/emailAddress=".length()); 
                     System.out.println("[CertificateUtil.extractEmail] Email extraído do CN via /emailAddress=: " + email);
-                    return email; 
+                    // LIMPEZA DO EMAIL EXTRAÍDO DO CN
+                    String cleanedEmail = email.replaceAll("^[\\p{C}\\s\\uFEFF]+|[\\p{C}\\s\\uFEFF]+$", "").trim();
+                    if (!email.equals(cleanedEmail)) {
+                        System.out.println("[CertificateUtil.extractEmail] Email original (CN): '" + email + "'");
+                        System.out.println("[CertificateUtil.extractEmail] Email após limpeza (CN): '" + cleanedEmail + "'");
+                    }
+                    return cleanedEmail; // Retorna o email limpo
                 }
             } else if (trimmedComponent.startsWith("1.2.840.113549.1.9.1=#")) {
                 // OID de e-mail em hexadecimal
@@ -172,7 +197,13 @@ public class CertificateUtil {
                 }
                 String email = emailBuilder.toString();
                 System.out.println("[CertificateUtil.extractEmail] Email extraído do OID 1.2.840.113549.1.9.1: " + email);
-                return email;
+                // Emails em certificados são geralmente IA5String (ASCII compatível)
+                String cleanedEmail = email.replaceAll("^[\\p{C}\\s\\uFEFF]+|[\\p{C}\\s\\uFEFF]+$", "").trim();
+                if (!email.equals(cleanedEmail)) {
+                    System.out.println("[CertificateUtil.extractEmail] Email original (OID): '" + email + "'");
+                    System.out.println("[CertificateUtil.extractEmail] Email após limpeza (OID): '" + cleanedEmail + "'");
+                }
+                return cleanedEmail; // Retorna o email limpo
             }
         }
         System.out.println("[CertificateUtil.extractEmail] Email não encontrado após análise dos componentes do SubjectDN.");
@@ -184,10 +215,22 @@ public class CertificateUtil {
         if (matcher.find()) {
             String email = matcher.group(1);
             System.out.println("[CertificateUtil.extractEmail] Email encontrado via fallback regex: " + email);
-            return email;
+            // LIMPEZA DO EMAIL EXTRAÍDO
+            String cleanedEmail = email.replaceAll("^[\\p{C}\\s\\uFEFF]+|[\\p{C}\\s\\uFEFF]+$", "").trim();
+            if (!email.equals(cleanedEmail)) {
+                System.out.println("[CertificateUtil.extractEmail] Email original (fallback regex): '" + email + "'");
+                System.out.println("[CertificateUtil.extractEmail] Email após limpeza (fallback regex): '" + cleanedEmail + "'");
+            }
+            return cleanedEmail; // Retorna o email limpo
         }
         System.out.println("[CertificateUtil.extractEmail] Email NÃO encontrado por nenhuma estratégia.");
-        return null;
+        // Adicionar limpeza final mesmo se não encontrado, para retornar null limpo se for o caso.
+        if (null != null) { // Esta condição sempre será falsa, mas permite manter a estrutura do if/else if/return email
+            // A linha abaixo nunca será alcançada devido à condição acima, mas demonstra onde a limpeza seria feita.
+            // String cleanedEmail = null.replaceAll("^[\\p{C}\\s\\uFEFF]+|[\\p{C}\\s\\uFEFF]+$", "").trim();
+            // email = cleanedEmail; 
+        } // Esta linha deveria ser o final da limpeza para o caso de email não encontrado, retornando null.
+        return null; // Se email for null, retorna null.
     }
 
     /**
