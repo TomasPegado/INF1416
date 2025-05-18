@@ -2,38 +2,51 @@ package br.com.cofredigital;
 
 import br.com.cofredigital.autenticacao.servico.TotpServico;
 import br.com.cofredigital.autenticacao.servico.UsuarioServico;
+import br.com.cofredigital.log.LogEventosMIDs;
+import br.com.cofredigital.log.servico.RegistroServico;
 import br.com.cofredigital.ui.gui.MainFrame;
 import javax.swing.SwingUtilities;
 import br.com.cofredigital.persistencia.DatabaseManager;
+import java.util.Map;
 
 public class CofreDigitalApp {
 
     public static void main(String[] args) {
-        // 0. Inicializar o banco de dados e criar tabelas se não existirem
+        RegistroServico registroServico = null;
+
         try {
-            Class.forName("org.sqlite.JDBC"); // Garante que o driver JDBC do SQLite seja carregado
+            Class.forName("org.sqlite.JDBC");
             DatabaseManager.inicializarBanco();
+            
+            registroServico = new RegistroServico();
+            registroServico.registrarEventoDoSistema(LogEventosMIDs.SISTEMA_INICIADO, (Map<String, String>) null);
+
         } catch (ClassNotFoundException e) {
             System.err.println("Driver SQLite JDBC não encontrado. Verifique as dependências do Maven.");
             e.printStackTrace();
-            // Considerar encerrar a aplicação aqui se o driver não for encontrado, pois o DB é essencial.
-            return; // Sai da aplicação se não puder carregar o driver
+            return; 
         } catch (RuntimeException e) {
             System.err.println("Falha crítica ao inicializar o banco de dados: " + e.getMessage());
             e.printStackTrace();
-            // Encerra a aplicação se o banco não puder ser inicializado.
             return; 
         }
 
-        // 1. Inicializar os serviços necessários
-        TotpServico totpServico = new TotpServico();
-        UsuarioServico usuarioServico = new UsuarioServico(totpServico);
+        final RegistroServico servicoLogFinal = registroServico; 
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            if (servicoLogFinal != null) {
+                System.out.println("Registrando encerramento do sistema...");
+                servicoLogFinal.registrarEventoDoSistema(LogEventosMIDs.SISTEMA_ENCERRADO, (Map<String, String>) null);
+            } else {
+                System.err.println("Shutdown hook: RegistroServico não inicializado, não foi possível logar encerramento.");
+            }
+        }));
 
-        // 2. Garantir que a UI seja criada e atualizada no Event Dispatch Thread (EDT)
-        // Isso é uma boa prática para aplicações Swing para evitar problemas de concorrência.
+        TotpServico totpServico = new TotpServico();
+        UsuarioServico usuarioServico = new UsuarioServico(totpServico, registroServico);
+
+        final RegistroServico rsParaUI = registroServico;
         SwingUtilities.invokeLater(new Runnable() {
             public void run() {
-                // 3. Criar e exibir o MainFrame
                 MainFrame mainFrame = new MainFrame(usuarioServico, totpServico);
                 mainFrame.setVisible(true);
             }
