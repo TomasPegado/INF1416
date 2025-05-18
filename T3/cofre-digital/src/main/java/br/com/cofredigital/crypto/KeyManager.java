@@ -48,7 +48,7 @@ public class KeyManager {
         byte[] encryptedBytes = java.nio.file.Files.readAllBytes(keyFile.toPath());
         try {
             // 2. Derivar chave AES da frase secreta (SHA1-PRNG, 128 bits)
-            SecretKey aesKey = AESUtil.generateAESKeyFromPassphrase(passphrase, 128);
+            SecretKey aesKey = AESUtil.generateKeyFromSecret(passphrase, 128);
             // 3. Descriptografar com AES/ECB/PKCS5
             Cipher cipher = Cipher.getInstance("AES/ECB/PKCS5Padding");
             cipher.init(Cipher.DECRYPT_MODE, aesKey);
@@ -143,8 +143,8 @@ public class KeyManager {
      * @throws Exception caso ocorra erro de geração
      */
     public SecretKey generateAESKeyFromPassphrase(String passphrase, int keySizeBits) throws Exception {
-        // Pode delegar para AESUtil.generateAESKeyFromPassphrase
-        return AESUtil.generateAESKeyFromPassphrase(passphrase, keySizeBits);
+        // Pode delegar para AESUtil.generateKeyFromSecret
+        return AESUtil.generateKeyFromSecret(passphrase, keySizeBits);
     }
 
 
