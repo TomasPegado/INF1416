@@ -1,3 +1,106 @@
+Construir um sistema em Java (plataforma JDK SE), chamado Cofre Digital, que utiliza um 
+banco  de  dados  relacional  (ex:  SQLLite,  MySQL),  um  processo  de  autenticação  multifator  e 
+controle de integridade, autenticidade e sigilo para proteger uma pasta de arquivos secretos. 
+ 
+ Quando  o  cofre  digital  for  executado  pela  primeira  vez  (processo  de  partida  do  sistema), 
+sem  nenhum  usuário  cadastrado  no  sistema,  a  aplicação  deve  fazer  o  cadastro  do  usuário 
+administrador da pasta segura, conforme descrito na opção de cadastro. A frase secreta da chave 
+privada  do  administrador  deverá  ser  mantida  em  memória  para  que  o  sistema  tenha  acesso  a 
+essa chave privada durante a sua execução. Após esse cadastro inicial, o sistema deverá iniciar o 
+processo  de  autenticação  de  usuários.  Tipicamente,  o  administrador  do  sistema  deverá  ser  o 
+primeiro a entrar no sistema para fazer o cadastro dos demais usuários do sistema. Se o sistema 
+for encerrado, a chave secreta do usuário deverá ser apagada da memória. 
+ 
+ Quando o cofre digital for executado da segunda vez em diante (novo processo de partida 
+do  sistema),  a  aplicação  deverá  solicitar  a frase secreta  da  chave  privada  do  administrador, que 
+deve  passar  pelo  processo  de  validação,  da  mesma  forma  como  realizado  no  processo  de 
+cadastro.  Se  a  validação  da  chave  privada  for  negativa,  o  sistema  deve  notificar  o  usuário  do 
+ocorrido e deve encerrar a execução do sistema. Se a validação da chave privada for positiva, o 
+sistema  deverá  manter  a  frase  secreta  em  memória  e  iniciar  o  processo  de  autenticação  de 
+usuários. 
+ 
+ Na primeira etapa de autenticação, deve-se solicitar a identificação do usuário (login name) 
+no  sistema,  que  deve  ser  um  e-mail  válido.  O  e-mail  do  usuário  deve  ser  coletado  do  seu 
+respectivo certificado digital no momento do seu cadastramento no sistema. Se a identificação for 
+inválida, o usuário deve ser apropriadamente avisado e o processo deve permanecer na primeira 
+etapa.  Se  a  identificação for  válida  e  o  acesso  do  usuário  estiver  bloqueado,  o  mesmo  deve  ser 
+apropriadamente  avisado  e  o  processo  deve  permanecer  na  primeira  etapa.  Caso  contrário,  o 
+processo deve seguir para a segunda etapa. 
+ 
+ Na  segunda  etapa,  deve-se  verificar  a  senha  pessoal  do  usuário  (algo  que  ele  conhece) 
+que  é  fornecida  através  de  um  teclado  virtual  numérico  sobrecarregado  com  cinco  botões,  cada 
+um  com  dois  números,  que  são  distribuídos  aleatoriamente  e  sem  repetição  entre  todos  os 
+botões.  As  senhas  pessoais  são  sempre  formadas  por  oito,  nove  ou  10  números.  A  cada 
+pressionamento  de  um  botão,  os  números  são  redistribuídos  aleatoriamente  entre  os  cinco 
+botões. Se a verificação  da senha for negativa, o usuário deve ser apropriadamente avisado e o 
+processo deve contabilizar um erro de verificação de senha pessoal. Após três erros consecutivos 
+sem que ocorra uma verificação positiva entre os erros, deve-se seguir para a primeira etapa e o 
+acesso do usuário deve ser bloqueado por 2 minutos (outros usuários poderão tentar ter acesso). 
+Se a verificação for positiva, o processo deve seguir para a terceira etapa. 
+ 
+ Na terceira e última etapa de autenticação, deve-se verificar o token do usuário (algo que 
+ele  possui)  fornecido  para  o  sistema  através  do  aplicativo  Google  Authenticator.  Esse  aplicativo 
+gera  uma  Time-based  One  Time  Password  (TOTP)  com  base  nos  RFCs  4226,  4648  e  6238.  O 
+RFC  6238  define  o  uso  de  um  contador  de  tempo  que  conta  a  quantidade  de  intervalos  de  30 
+segundos  (time  step  in  seconds)  decorridos  desde  Janeiro  1,  1970,  00:00:00  GMT.  E,  o  RFC 
+4226,  define  o  uso  do  algoritmo  HMAC-SHA1  para  gerar  um  HMAC  em  função  do  contador  de 
+tempo e de uma chave secreta de 160 bits (20 bytes). Por sua vez, o RFC 4648 define três formas 
+de  codificação  de  valores  binários:  BASE64,  BASE32  e  BASE16.  A  chave  secreta  de  160bits 
+deverá ser  codificada em BASE32 para exportação entre sistemas e decodificada para o cálculo 
+do HMAC-SHA1. O código TOTP é um valor de 6 algarismos produzido a partir do truncamento do 
+hash  do  HMAC-SHA1,  conforme  especificado  no  RFC  4226.  O  código  TOTP  é  preenchido  com 
+zeros à esquerda quando necessário e muda seu valor a cada 30 segundos.  Esse código TOTP 
+deve  ser fornecido  pelo  usuário  na  tela  de  autenticação  do  programa  Cofre  Digital, que,  por  sua 
+vez,  deve  trabalhar  com  uma  margem  de  erro  de  30  segundos  a  menos  e  30  segundos  a  mais. 
+Para isso, deve calcular três valores de token:  (i) um valor com a quantidade de intervalos de 30 
+segundos decorridos até o presente momento; (ii) outro valor com um intervalo de 30 segundos à 
+menos; e (iii)  outro valor com  um intervalo de 30 segundos a mais. Se a verificação for negativa 
+para  os três  valores calculados,  o  usuário  deve  ser  apropriadamente  avisado  e  o  processo  deve 
+contabilizar um erro de verificação de token, retornando para o início da terceira etapa. Após três 
+erros  consecutivos  sem  que  ocorra  uma  verificação  válida  do  token,  deve-se  seguir  para  a 
+primeira etapa e o acesso do usuário deve ser bloqueado por 2 minutos (outros usuários poderão 
+tentar ter acesso). Se a verificação for positiva, o processo deve permitir acesso ao sistema. 
+ 
+ Após  um  processo  de  autenticação  positivo,  o  sistema  deve  apresentar  uma  tela  com 
+informações  e  menus  distintos  em  função  do  grupo  do  usuário  no  sistema.  Para  organizar  a 
+apresentação,  a  tela  é  dividida  em  três  partes:  cabeçalho,  corpo  1  e  corpo  2.  Para  o  grupo 
+administrador,  o  sistema  deve  apresentar  a  Tela  Principal  com  as  informações  do  usuário  no 
+cabeçalho,  o  total  de  acessos  do  usuário  no  corpo  1,  e  o  Menu  Principal  no  corpo  2,  conforme 
+abaixo: 
+ 
+Login: login_name_do_usuário 
+Grupo: grupo_do_usuário 
+Nome: nome_do_usuário 
+ 
+Total de acessos do usuário: total_de _acessos_do_usuario 
+ 
+Menu Principal: 
+ 
+1 – Cadastrar um novo usuário 
+2 – Consultar pasta de arquivos secretos do usuário 
+3 – Sair do Sistema 
+ 
+ 
+Quando  a  opção  1  for  selecionada,  a  Tela  de  Cadastro  deve  ser  apresentada  com  o 
+mesmo  cabeçalho  da  Tela  Principal,  com  o  total  de  usuários  do  sistema  no  corpo  1  e  com  o 
+Formulário de Cadastro no corpo 2, conforme abaixo: 
+ 
+Login: login_name_do_usuário 
+Grupo: grupo_do_usuário 
+Nome: nome_do_usuário 
+ 
+Total de usuários do sistema: total_de_usuários 
+ 
+Formulário de Cadastro: 
+ 
+– Caminho do arquivo do certificado digital: <campo com 255 caracteres> 
+– Caminho do arquivo da chave privada: <campo com 255 caracteres> 
+– Frase secreta: <campo de 255 caracteres> 
+– Grupo: <lista de opções: Administrador e Usuário> 
+– Senha pessoal: <campo com 10 caracteres> 
+– Confirmação senha pessoal: <campo com 10 caracteres> 
+ 
+<Botão Cadastar> <Botão Voltar de Cadastrar para o Menu Principal> 
 
 Os valores entrados nos campos devem ser criticados adequadamente. As senhas pessoais são 
 sempre formadas  por  oito,  nove  ou  dez  números formados por  dígitos  de  0  a  9.  Não  podem  ser 

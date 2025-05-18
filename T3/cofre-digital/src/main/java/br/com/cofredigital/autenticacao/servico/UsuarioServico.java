@@ -37,6 +37,10 @@ import java.sql.SQLException;
 import java.util.Map;
 import java.time.LocalDateTime;
 import java.security.GeneralSecurityException;
+import org.bouncycastle.pkcs.PKCS8EncryptedPrivateKeyInfo;
+import org.bouncycastle.operator.OutputEncryptor;
+import org.bouncycastle.pkcs.jcajce.JcePKCSPBEOutputEncryptorBuilder;
+import org.bouncycastle.pkcs.jcajce.JcaPKCS8EncryptedPrivateKeyInfoBuilder;
 
 public class UsuarioServico {
 
@@ -468,9 +472,8 @@ public class UsuarioServico {
             try {
                 X509Certificate certificate = CertificateUtil.loadCertificateFromPEMString(chaveiroAdmin.getCertificadoPem());
                 PublicKey publicKey = CertificateUtil.getPublicKeyFromCertificate(certificate);
-                // CORREÇÃO: Restaurar para usar loadEncryptedPKCS8PrivateKeyFromBytes pois chaveiroAdmin.getChavePrivadaCriptografada() retorna byte[]
-                // e a senha candidata é 'candidatePassphrase'. A tentativa de edição anterior usou variáveis incorretas aqui.
-                PrivateKey privateKey = PrivateKeyUtil.loadEncryptedPKCS8PrivateKeyFromBytes(chaveiroAdmin.getChavePrivadaCriptografada(), candidatePassphrase);
+                // Usar o método correto para PKCS#8 DER binário criptografado
+                PrivateKey privateKey = PrivateKeyUtil.loadEncryptedPKCS8PrivateKeyFromDERBytes(chaveiroAdmin.getChavePrivadaCriptografada(), candidatePassphrase);
                 
                 if (privateKey == null) { 
                      // Frase secreta incorreta, falha na decriptografia.
@@ -546,7 +549,6 @@ public class UsuarioServico {
         String nomeDoCertificado;
         String emailDoCertificado;
         String certificadoPemString;
-        byte[] chavePrivadaOriginalBytesParaChaveiro; 
 
         try {
             System.out.println("[UsuarioServico] Carregando certificado de: " + caminhoCertificado);
@@ -556,60 +558,22 @@ public class UsuarioServico {
                 throw new RuntimeException("Falha ao carregar o certificado do administrador.");
             }
             publicKey = CertificateUtil.getPublicKeyFromCertificate(certificate);
-            
-            // Alterado: Chamar loadPrivateKeyFromPEMFile diretamente
-            //PrivateKey privateKey = PrivateKeyUtil.loadPrivateKeyFromPEMFile(caminhoChavePrivada, fraseSecreta);
-            // Alterado para usar o método que primeiro decriptografa AES e depois extrai PEM
             privateKey = PrivateKeyUtil.loadEncryptedPKCS8PrivateKey(caminhoChavePrivada, fraseSecretaChave);
-            
             if (privateKey == null) {
                 registroServico.registrarEventoDoSistema(LogEventosMIDs.CAD_CHAVE_PRIVADA_FRASE_SECRETA_INVALIDA, "path_chave", caminhoChavePrivada);
                 System.err.println("[UsuarioServico.setupInitialAdmin] Falha ao carregar/decriptografar chave privada PEM. Verifique o caminho e a frase secreta.");
                 throw new SecurityException("Falha ao carregar ou decriptografar a chave privada PEM. Frase secreta pode estar incorreta ou arquivo corrompido/não encontrado.");
             }
-
-            // Leitura dos bytes da chave privada para o Chaveiro
-            try {
-                chavePrivadaOriginalBytesParaChaveiro = Files.readAllBytes(Paths.get(caminhoChavePrivada));
-            } catch (IOException ioe_interna) {
-                System.err.println("[UsuarioServico.setupInitialAdmin] Erro ao ler os bytes do arquivo da chave privada para armazenamento no chaveiro: " + caminhoChavePrivada + " - " + ioe_interna.getMessage());
-                registroServico.registrarEventoDoSistema(LogEventosMIDs.CAD_CHAVE_PRIVADA_PATH_INVALIDO, "path_chave", caminhoChavePrivada, "erro_leitura_bytes", ioe_interna.getMessage());
-                throw new IOException("Erro ao ler os bytes do arquivo da chave privada para armazenamento: " + ioe_interna.getMessage(), ioe_interna);
-            }
-
-            // Validação da assinatura digital ...
-            try {
-                SecureRandom random = new SecureRandom();
-                byte[] randomBytes = new byte[8192];
-                random.nextBytes(randomBytes);
-                Signature sig = Signature.getInstance("SHA1withRSA");
-                sig.initSign(privateKey);
-                sig.update(randomBytes);
-                byte[] digitalSignature = sig.sign();
-                sig.initVerify(publicKey);
-                sig.update(randomBytes);
-                if (!sig.verify(digitalSignature)) {
-                    registroServico.registrarEventoDoSistema(LogEventosMIDs.CAD_CHAVE_PRIVADA_ASSINATURA_INVALIDA, "path_chave", caminhoChavePrivada, "path_cert", caminhoCertificado);
-                    throw new SecurityException("Chave privada não corresponde ao certificado (falha na verificação da assinatura).");
-                }
-                System.out.println("[UsuarioServico] Validação da assinatura da chave privada com a pública bem-sucedida.");
-            } catch (GeneralSecurityException gse) { // Captura exceções de assinatura mais genéricas
-                registroServico.registrarEventoDoSistema(LogEventosMIDs.CAD_CHAVE_PRIVADA_ASSINATURA_INVALIDA, "path_chave", caminhoChavePrivada, "path_cert", caminhoCertificado, "erro_assinatura", gse.getMessage());
-                throw new SecurityException("Erro durante a validação da assinatura da chave privada: " + gse.getMessage(), gse);
-            }
-            
             nomeDoCertificado = CertificateUtil.extractCNFromCertificate(certificate);
             emailDoCertificado = CertificateUtil.extractEmailFromCertificate(certificate);
             if (emailDoCertificado == null || emailDoCertificado.trim().isEmpty()) {
                 throw new RuntimeException("Não foi possível extrair o e-mail do certificado do administrador.");
             }
             if (nomeDoCertificado == null || nomeDoCertificado.trim().isEmpty()) nomeDoCertificado = emailDoCertificado; 
-
             if (usuarioDAO.emailExiste(emailDoCertificado)) { 
                 throw new EmailJaExisteException("Email do certificado ('" + emailDoCertificado + "') já cadastrado.");
             }
             certificadoPemString = CertificateUtil.convertToPem(certificate);
-
         } catch (SQLException sqle) { 
              throw new Exception("Erro de banco de dados durante o setup do admin: " + sqle.getMessage(), sqle);
         } catch (CertificateException ce) { 
@@ -642,21 +606,33 @@ public class UsuarioServico {
         }
         Usuario adminSalvo = usuarioDAO.salvar(adminUsuario, adminGrupoOpt.get().getGid());
 
-        // Armazenar no Chaveiro (BD) - usar chavePrivadaOriginalBytesParaChaveiro
-        Chaveiro chaveiroAdmin = new Chaveiro(0, adminSalvo.getId(), certificadoPemString, chavePrivadaOriginalBytesParaChaveiro); // KID será gerado pelo BD
-        Chaveiro chaveiroSalvo = chaveiroDAO.salvar(chaveiroAdmin); // Salva e obtém KID
-        
-        // Atualizar o usuário admin com o KID do seu chaveiro principal
-        adminSalvo.setKid(chaveiroSalvo.getKid()); // setKid espera Integer
-        usuarioDAO.atualizarKidPadrao(adminSalvo.getId(), adminSalvo.getKid());
-
-        System.out.println("[UsuarioServico] Certificado PEM e chave privada criptografada do admin armazenados no Chaveiro (BD) com KID: " + chaveiroSalvo.getKid() + " para UID: " + adminSalvo.getId());
-        
-        this.storeAdminPassphraseForSession(fraseSecretaChave); // Armazena frase validada
-        
-        Map<String, String> detalhesSucesso = Map.of("emailAdmin", adminSalvo.getEmail(), "uidAdmin", String.valueOf(adminSalvo.getId()), "kidChaveiro", String.valueOf(chaveiroSalvo.getKid()));
-        System.out.println("[UsuarioServico] Setup do administrador inicial concluído com sucesso para: " + adminSalvo.getEmail() + ". Chave TOTP (plana): " + chaveSecretaTotpBase32);
-        return adminSalvo;
+        // Exportar a chave privada para PKCS#8 DER criptografado usando a frase secreta
+        byte[] chavePrivadaDerCriptografada;
+        try {
+            JcaPKCS8EncryptedPrivateKeyInfoBuilder pkcs8Builder =
+                new JcaPKCS8EncryptedPrivateKeyInfoBuilder(privateKey);
+            OutputEncryptor encryptor =
+                new JcePKCSPBEOutputEncryptorBuilder(
+                    org.bouncycastle.asn1.pkcs.PKCSObjectIdentifiers.pbeWithSHAAnd3_KeyTripleDES_CBC)
+                        .setProvider("BC")
+                        .build(fraseSecretaChave.toCharArray());
+            PKCS8EncryptedPrivateKeyInfo encryptedInfo = pkcs8Builder.build(encryptor);
+            chavePrivadaDerCriptografada = encryptedInfo.getEncoded();
+            // Armazenar no Chaveiro (BD) - usar chavePrivadaDerCriptografada
+            Chaveiro chaveiroAdmin = new Chaveiro(0, adminSalvo.getId(), certificadoPemString, chavePrivadaDerCriptografada); // KID será gerado pelo BD
+            Chaveiro chaveiroSalvo = chaveiroDAO.salvar(chaveiroAdmin); // Salva e obtém KID
+            // Atualizar o usuário admin com o KID do seu chaveiro principal
+            adminSalvo.setKid(chaveiroSalvo.getKid()); // setKid espera Integer
+            usuarioDAO.atualizarKidPadrao(adminSalvo.getId(), adminSalvo.getKid());
+            System.out.println("[UsuarioServico] Certificado PEM e chave privada criptografada do admin armazenados no Chaveiro (BD) com KID: " + chaveiroSalvo.getKid() + " para UID: " + adminSalvo.getId());
+            this.storeAdminPassphraseForSession(fraseSecretaChave); // Armazena frase validada
+            Map<String, String> detalhesSucesso = Map.of("emailAdmin", adminSalvo.getEmail(), "uidAdmin", String.valueOf(adminSalvo.getId()), "kidChaveiro", String.valueOf(chaveiroSalvo.getKid()));
+            System.out.println("[UsuarioServico] Setup do administrador inicial concluído com sucesso para: " + adminSalvo.getEmail() + ". Chave TOTP (plana): " + chaveSecretaTotpBase32);
+            return adminSalvo;
+        } catch (Exception e) {
+            System.err.println("[UsuarioServico] Erro ao exportar chave privada para PKCS#8 DER criptografado: " + e.getMessage());
+            throw new RuntimeException("Erro ao exportar chave privada para PKCS#8 DER criptografado.", e);
+        }
     }
 
     // --- Métodos adicionais para gerenciamento de Chaveiro ---
@@ -798,7 +774,23 @@ public class UsuarioServico {
                     throw new SecurityException("Falha ao carregar ou decriptografar a chave privada PEM para " + email + ". Frase secreta pode estar incorreta ou arquivo corrompido/não encontrado.");
                 }
                 
-                // Para armazenar no Chaveiro, precisamos dos bytes originais do arquivo da chave privada.
+                // Exportar a chave privada para PKCS#8 DER criptografado usando a frase secreta
+                byte[] chavePrivadaDerCriptografada;
+                try {
+                    JcaPKCS8EncryptedPrivateKeyInfoBuilder pkcs8Builder =
+                        new JcaPKCS8EncryptedPrivateKeyInfoBuilder(privateKey);
+                    OutputEncryptor encryptor =
+                        new JcePKCSPBEOutputEncryptorBuilder(
+                            org.bouncycastle.asn1.pkcs.PKCSObjectIdentifiers.pbeWithSHAAnd3_KeyTripleDES_CBC)
+                                .setProvider("BC")
+                                .build(fraseSecretaChave.toCharArray());
+                    PKCS8EncryptedPrivateKeyInfo encryptedInfo = pkcs8Builder.build(encryptor);
+                    chavePrivadaDerCriptografada = encryptedInfo.getEncoded();
+                } catch (Exception e) {
+                    System.err.println("[UsuarioServico] Erro ao exportar chave privada para PKCS#8 DER criptografado: " + e.getMessage());
+                    throw new RuntimeException("Erro ao exportar chave privada para PKCS#8 DER criptografado.", e);
+                }
+                // Armazenar no Chaveiro (BD) - usar chavePrivadaDerCriptografada
                 try {
                     chavePrivadaBytesParaChaveiro = Files.readAllBytes(Paths.get(caminhoChavePrivada));
                 } catch (IOException ioe) {

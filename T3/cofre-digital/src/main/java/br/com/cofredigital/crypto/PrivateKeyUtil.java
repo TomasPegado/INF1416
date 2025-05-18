@@ -489,4 +489,72 @@ public final class PrivateKeyUtil {
         System.err.println("[PrivateKeyUtil] Falha ao carregar a chave privada usando a abordagem PEMParser.");
         return null;
     }
+
+    /**
+     * Carrega uma chave pública de um arquivo de certificado (X.509/PEM).
+     * @param certFilePath caminho do arquivo do certificado público
+     * @return PublicKey ou null em caso de erro
+     */
+    public static java.security.PublicKey loadPublicKeyFromCertificateFile(String certFilePath) {
+        if (certFilePath == null || certFilePath.trim().isEmpty()) {
+            System.err.println("Caminho do arquivo do certificado não pode ser nulo ou vazio.");
+            return null;
+        }
+        try (org.bouncycastle.openssl.PEMParser pemParser = new org.bouncycastle.openssl.PEMParser(new java.io.FileReader(certFilePath))) {
+            Object object = pemParser.readObject();
+            if (object instanceof org.bouncycastle.cert.X509CertificateHolder) {
+                org.bouncycastle.cert.X509CertificateHolder certHolder = (org.bouncycastle.cert.X509CertificateHolder) object;
+                java.security.cert.X509Certificate cert = new org.bouncycastle.cert.jcajce.JcaX509CertificateConverter().setProvider("BC").getCertificate(certHolder);
+                return cert.getPublicKey();
+            } else {
+                System.err.println("Certificado X.509 não encontrado no arquivo: " + certFilePath);
+                return null;
+            }
+        } catch (Exception e) {
+            System.err.println("Erro ao carregar chave pública do certificado: " + certFilePath + " - " + e.getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * Gera uma chave simétrica AES a partir de uma senha/frase secreta.
+     * @param passphrase senha/frase secreta
+     * @param keySizeBits tamanho da chave em bits (ex: 256)
+     * @return SecretKey ou null em caso de erro
+     */
+    public static javax.crypto.SecretKey generateAESKeyFromPassphrase(String passphrase, int keySizeBits) {
+        try {
+            return AESUtil.generateKeyFromSecret(passphrase, keySizeBits);
+        } catch (Exception e) {
+            System.err.println("Erro ao gerar chave AES a partir da frase secreta: " + e.getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * Carrega uma chave privada PKCS#8 DER binária criptografada (não PEM) a partir de bytes.
+     * @param derBytes bytes do arquivo PKCS#8 DER criptografado
+     * @param passphrase frase secreta para decriptografia
+     * @return PrivateKey ou null em caso de erro
+     */
+    public static PrivateKey loadEncryptedPKCS8PrivateKeyFromDERBytes(byte[] derBytes, String passphrase) {
+        if (derBytes == null || derBytes.length == 0) {
+            System.err.println("[PrivateKeyUtil] Bytes DER da chave privada não podem ser nulos ou vazios.");
+            return null;
+        }
+        if (passphrase == null || passphrase.isEmpty()) {
+            System.err.println("[PrivateKeyUtil] Frase secreta não pode ser nula ou vazia para chave PKCS#8 DER criptografada.");
+            return null;
+        }
+        try {
+            org.bouncycastle.pkcs.PKCS8EncryptedPrivateKeyInfo encryptedInfo = new org.bouncycastle.pkcs.PKCS8EncryptedPrivateKeyInfo(derBytes);
+            org.bouncycastle.operator.InputDecryptorProvider decryptorProvider =
+                new org.bouncycastle.openssl.jcajce.JceOpenSSLPKCS8DecryptorProviderBuilder().setProvider("BC").build(passphrase.toCharArray());
+            org.bouncycastle.asn1.pkcs.PrivateKeyInfo privateKeyInfo = encryptedInfo.decryptPrivateKeyInfo(decryptorProvider);
+            return new org.bouncycastle.openssl.jcajce.JcaPEMKeyConverter().setProvider("BC").getPrivateKey(privateKeyInfo);
+        } catch (Exception e) {
+            System.err.println("[PrivateKeyUtil] Falha ao decriptografar chave PKCS#8 DER: " + e.getMessage());
+            return null;
+        }
+    }
 } 
