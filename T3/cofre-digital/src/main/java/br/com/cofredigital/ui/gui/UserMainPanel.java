@@ -50,10 +50,9 @@ public class UserMainPanel extends JPanel {
         // Botão para consultar pasta (placeholder)
         btnConsultarPasta = new JButton("Consultar pasta de arquivos secretos do usuário");
         btnConsultarPasta.addActionListener(e -> {
-            JOptionPane.showMessageDialog(UserMainPanel.this, 
-                "Funcionalidade 'Consultar Pasta' ainda não implementada.", 
-                "Aviso", 
-                JOptionPane.INFORMATION_MESSAGE);
+            if (mainFrame != null && usuarioLogado != null) {
+                mainFrame.showConsultarArquivosSecretosPanel();
+            }
         });
         body2Panel.add(btnConsultarPasta);
 

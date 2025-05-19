@@ -116,26 +116,58 @@ public class ConsultarArquivosSecretosPanel extends JPanel {
                 return;
             }
             try {
-                // 1. Decriptar a chave privada do admin usando a frase secreta fornecida
+                // 1. Decriptar a chave privada do usuário logado usando a frase secreta fornecida
                 int kid = usuarioLogado.getKid();
-                br.com.cofredigital.persistencia.modelo.Chaveiro chaveiro = usuarioServico.buscarChaveiroPorKid(kid).orElseThrow(() -> new Exception("Chaveiro não encontrado para o usuário."));
-                java.security.PrivateKey chavePrivada = br.com.cofredigital.crypto.PrivateKeyUtil.loadEncryptedPKCS8PrivateKeyFromDERBytes(
-                    chaveiro.getChavePrivadaCriptografada(), fraseSecreta
-                );
-                java.security.cert.X509Certificate certificado = br.com.cofredigital.crypto.CertificateUtil.loadCertificateFromPEMString(chaveiro.getCertificadoPem());
+                br.com.cofredigital.persistencia.modelo.Chaveiro chaveiroUsuario = usuarioServico.buscarChaveiroPorKid(kid).orElseThrow(() -> new Exception("Chaveiro não encontrado para o usuário."));
+                java.security.PrivateKey chavePrivadaUsuario;
+                try {
+                    chavePrivadaUsuario = br.com.cofredigital.crypto.PrivateKeyUtil.loadEncryptedPKCS8PrivateKeyFromDERBytes(
+                        chaveiroUsuario.getChavePrivadaCriptografada(), fraseSecreta
+                    );
+                } catch (Exception exPriv) {
+                    // Erro ao decriptar a chave privada: provavelmente frase secreta errada
+                    JOptionPane.showMessageDialog(this, "Frase secreta incorreta para decriptar a chave privada do usuário.", "Erro de autenticação", JOptionPane.ERROR_MESSAGE);
+                    return;
+                }
+                java.security.cert.X509Certificate certificadoUsuario = br.com.cofredigital.crypto.CertificateUtil.loadCertificateFromPEMString(chaveiroUsuario.getCertificadoPem());
+
                 // 2. Ler arquivos do índice
                 String basePath = caminhoPasta;
                 byte[] envBytes = br.com.cofredigital.util.ArquivoProtegidoUtil.lerArquivo(basePath + "/index.env");
                 byte[] encBytes = br.com.cofredigital.util.ArquivoProtegidoUtil.lerArquivo(basePath + "/index.enc");
                 byte[] asdBytes = br.com.cofredigital.util.ArquivoProtegidoUtil.lerArquivo(basePath + "/index.asd");
-                // 3. Decriptar envelope digital
-                byte[] semente = br.com.cofredigital.util.ArquivoProtegidoUtil.decriptarEnvelope(envBytes, chavePrivada);
+
+                // 3. Decriptar envelope digital com a chave privada do usuário logado
+                byte[] semente;
+                try {
+                    semente = br.com.cofredigital.util.ArquivoProtegidoUtil.decriptarEnvelope(envBytes, chavePrivadaUsuario);
+                } catch (java.security.GeneralSecurityException exEnv) {
+                    // Erro ao decriptar o envelope: provavelmente não é o dono
+                    JOptionPane.showMessageDialog(this, "Você não tem permissão para acessar este arquivo secreto, pois não é o dono dele.", "Permissão negada", JOptionPane.ERROR_MESSAGE);
+                    return;
+                } catch (Exception exEnv) {
+                    // Outros erros ao decriptar o envelope
+                    JOptionPane.showMessageDialog(this, "Erro ao decriptar envelope digital: " + exEnv.getMessage(), "Erro", JOptionPane.ERROR_MESSAGE);
+                    return;
+                }
                 // 4. Gerar chave AES
                 javax.crypto.SecretKey chaveAES = br.com.cofredigital.util.ArquivoProtegidoUtil.gerarChaveAES(semente);
                 // 5. Decriptar índice
                 byte[] indiceDecriptado = br.com.cofredigital.util.ArquivoProtegidoUtil.decriptarArquivoAES(encBytes, chaveAES);
-                // 6. Verificar assinatura digital
-                boolean assinaturaOk = br.com.cofredigital.util.ArquivoProtegidoUtil.verificarAssinatura(indiceDecriptado, asdBytes, certificado.getPublicKey());
+
+                // 6. Verificar assinatura digital do índice usando o certificado do ADMINISTRADOR
+                // Buscar o admin do sistema
+                br.com.cofredigital.autenticacao.modelo.Usuario admin = usuarioServico.listarTodos().stream()
+                    .filter(u -> u.getGrupo() != null && u.getGrupo().equalsIgnoreCase("Administrador"))
+                    .findFirst().orElse(null);
+                if (admin == null) {
+                    JOptionPane.showMessageDialog(this, "Administrador do sistema não encontrado para verificar assinatura.", "Erro", JOptionPane.ERROR_MESSAGE);
+                    return;
+                }
+                int adminKid = admin.getKid();
+                br.com.cofredigital.persistencia.modelo.Chaveiro chaveiroAdmin = usuarioServico.buscarChaveiroPorKid(adminKid).orElseThrow(() -> new Exception("Chaveiro do admin não encontrado."));
+                java.security.cert.X509Certificate certificadoAdmin = br.com.cofredigital.crypto.CertificateUtil.loadCertificateFromPEMString(chaveiroAdmin.getCertificadoPem());
+                boolean assinaturaOk = br.com.cofredigital.util.ArquivoProtegidoUtil.verificarAssinatura(indiceDecriptado, asdBytes, certificadoAdmin.getPublicKey());
                 if (!assinaturaOk) {
                     JOptionPane.showMessageDialog(this, "Assinatura digital do índice inválida! Arquivo pode ter sido adulterado.", "Erro de integridade", JOptionPane.ERROR_MESSAGE);
                     return;
@@ -160,6 +192,7 @@ public class ConsultarArquivosSecretosPanel extends JPanel {
                 }
                 JOptionPane.showMessageDialog(this, "Consulta realizada com sucesso!", "Sucesso", JOptionPane.INFORMATION_MESSAGE);
             } catch (Exception ex) {
+                // Erro genérico não tratado acima
                 JOptionPane.showMessageDialog(this, "Erro ao consultar arquivos secretos: " + ex.getMessage(), "Erro", JOptionPane.ERROR_MESSAGE);
             }
         });

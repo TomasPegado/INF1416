@@ -510,31 +510,17 @@ public class MainFrame extends JFrame {
     // Novo método para exibir o painel de consulta de arquivos secretos para o admin
     public void showConsultarArquivosSecretosPanel() {
         try {
-            if (usuarioEmLogin == null || !"Administrador".equalsIgnoreCase(usuarioEmLogin.getGrupo())) {
-                JOptionPane.showMessageDialog(this, "Apenas administradores podem acessar esta funcionalidade.", "Acesso negado", JOptionPane.ERROR_MESSAGE);
-                return;
-            }
-            // Recupera o KID do admin
+            // Recupera o KID do usuário logado
             Integer kid = usuarioEmLogin.getKid();
             if (kid == null) {
-                JOptionPane.showMessageDialog(this, "Admin não possui chaveiro associado.", "Erro", JOptionPane.ERROR_MESSAGE);
+                JOptionPane.showMessageDialog(this, "Usuário não possui chaveiro associado.", "Erro", JOptionPane.ERROR_MESSAGE);
                 return;
             }
             // Busca o chaveiro
-            Chaveiro chaveiro = usuarioServico.buscarChaveiroPorKid(kid).orElseThrow(() -> new Exception("Chaveiro não encontrado para o admin."));
+            Chaveiro chaveiro = usuarioServico.buscarChaveiroPorKid(kid).orElseThrow(() -> new Exception("Chaveiro não encontrado para o usuário."));
             // Carrega o certificado
-            X509Certificate certificadoAdmin = CertificateUtil.loadCertificateFromPEMString(chaveiro.getCertificadoPem());
-            // Decripta a chave privada usando a frase secreta do admin
-            String fraseSecretaAdmin = usuarioServico.getAdminPassphraseForSession();
-            if (fraseSecretaAdmin == null || fraseSecretaAdmin.isEmpty()) {
-                JOptionPane.showMessageDialog(this, "Frase secreta do admin não está disponível na sessão. Faça a validação novamente.", "Erro", JOptionPane.ERROR_MESSAGE);
-                return;
-            }
-            PrivateKey chavePrivadaAdmin = PrivateKeyUtil.loadEncryptedPKCS8PrivateKeyFromDERBytes(
-                chaveiro.getChavePrivadaCriptografada(), fraseSecretaAdmin
-            );
-            // Injeta as chaves no painel
-            consultarArquivosSecretosPanel.setAdminKeys(chavePrivadaAdmin, certificadoAdmin.getPublicKey());
+            X509Certificate certificado = CertificateUtil.loadCertificateFromPEMString(chaveiro.getCertificadoPem());
+            // Não decriptar a chave privada aqui, pois será feito no painel com a frase secreta informada
             // Injeta o serviço de usuário e o usuário logado
             consultarArquivosSecretosPanel.setUsuarioServico(usuarioServico);
             consultarArquivosSecretosPanel.setUsuarioLogado(usuarioEmLogin, usuarioEmLogin.getTotalAcessos());
