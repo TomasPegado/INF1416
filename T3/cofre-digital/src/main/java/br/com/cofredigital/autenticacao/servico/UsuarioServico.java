@@ -261,30 +261,25 @@ public class UsuarioServico {
             usuario.incrementarTotalAcessos(); 
             if(usuario.isAcessoBloqueado()) usuario.desbloquearAcesso(); 
             atualizar(usuario); 
-            // // registroServico.registrarEventoDoUsuario(LogEventosMIDs.AUTH_SENHA_OK, uidUsuario, "email", email);
-            // // registroServico.registrarEventoDoUsuario(LogEventosMIDs.AUTH_ETAPA2_ENCERRADA, uidUsuario, "email", email, "resultado", "sucesso");
+            // Log de sucesso de login
+            registroServico.registrarEventoDoUsuario(LogEventosMIDs.AUTH_SENHA_OK, uidUsuario, "email", email);
+            registroServico.registrarEventoDoUsuario(LogEventosMIDs.AUTH_ETAPA2_ENCERRADA, uidUsuario, "email", email, "resultado", "sucesso");
             return Optional.of(senhaAutenticada);
         } else {
             usuario.registrarFalhaSenha();
             int tentativas = usuario.getTentativasFalhasSenha();
-            
             if (tentativas == 1) {
-                // // registroServico.registrarEventoDoUsuario(LogEventosMIDs.AUTH_SENHA_ERRO1, uidUsuario, "email", email, "tentativas", String.valueOf(tentativas));
+                registroServico.registrarEventoDoUsuario(LogEventosMIDs.AUTH_SENHA_ERRO1, uidUsuario, "email", email, "tentativas", String.valueOf(tentativas));
             } else if (tentativas == 2) {
-                // // registroServico.registrarEventoDoUsuario(LogEventosMIDs.AUTH_SENHA_ERRO2, uidUsuario, "email", email, "tentativas", String.valueOf(tentativas));
+                registroServico.registrarEventoDoUsuario(LogEventosMIDs.AUTH_SENHA_ERRO2, uidUsuario, "email", email, "tentativas", String.valueOf(tentativas));
             } else if (tentativas >= MAX_TENTATIVAS_SENHA) { // Maior ou igual para segurança
-                // // registroServico.registrarEventoDoUsuario(LogEventosMIDs.AUTH_SENHA_ERRO3, uidUsuario, "email", email, "tentativas", String.valueOf(tentativas));
+                registroServico.registrarEventoDoUsuario(LogEventosMIDs.AUTH_SENHA_ERRO3, uidUsuario, "email", email, "tentativas", String.valueOf(tentativas));
                 usuario.bloquearAcessoPorMinutos(MINUTOS_BLOQUEIO_SENHA);
-                // // registroServico.registrarEventoDoUsuario(LogEventosMIDs.AUTH_ACESSO_BLOQUEADO_ETAPA2, uidUsuario, "email", email, "minutos_bloqueio", String.valueOf(MINUTOS_BLOQUEIO_SENHA));
+                registroServico.registrarEventoDoUsuario(LogEventosMIDs.AUTH_LOGIN_BLOQUEADO, uidUsuario, "email", email, "minutos_bloqueio", String.valueOf(MINUTOS_BLOQUEIO_SENHA));
                 System.err.println("Usuário bloqueado por " + MINUTOS_BLOQUEIO_SENHA + " minutos devido a " + tentativas + " tentativas de senha: " + email);
-            } else {
-                // Caso haja mais de 3 tentativas configuradas como MAX, mas ainda não bloqueado (improvável com MAX_TENTATIVAS_SENHA = 3)
-                // Ou se MAX_TENTATIVAS_SENHA for < 1 (não deve acontecer)
-                // Log genérico de erro de senha se necessário, mas os MIDs AUTH_SENHA_ERRO1,2,3 devem cobrir.
             }
-            
             atualizar(usuario); 
-            // // registroServico.registrarEventoDoUsuario(LogEventosMIDs.AUTH_ETAPA2_ENCERRADA, uidUsuario, "email", email, "resultado", "falha_senha");
+            registroServico.registrarEventoDoUsuario(LogEventosMIDs.AUTH_ETAPA2_ENCERRADA, uidUsuario, "email", email, "resultado", "falha_senha");
             return Optional.empty();
         }
     }

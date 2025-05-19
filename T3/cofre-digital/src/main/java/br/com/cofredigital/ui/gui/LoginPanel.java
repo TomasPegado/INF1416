@@ -143,6 +143,9 @@ public class LoginPanel extends JPanel {
 
     // Modificado para passar dados necessários para a próxima etapa (ex: TOTP)
     protected void onLoginSuccess(String email, String senhaPlanaVerificada) {
+        Usuario usuario = usuarioServico.buscarPorEmail(email);
+        Long uid = (usuario != null) ? usuario.getId() : null;
+        registroServico.registrarEventoDoUsuario(LogEventosMIDs.AUTH_SENHA_OK, uid, "email", email, "mensagem", "Login realizado com sucesso na GUI");
         System.out.println("Login bem-sucedido para: " + email + ". Navegar para a próxima tela (TOTP).");
         // A senhaPlanaVerificada pode ser usada aqui ou passada para o MainFrame
         // para ser usada na obtenção da chave TOTP antes de exibir o painel TOTP.
