@@ -310,11 +310,11 @@ public class MainFrame extends JFrame {
             if (adminCriado != null) {
                  registroServico.registrarEventoDoSistema(LogEventosMIDs.PARTIDA_SISTEMA_CADASTRO_ADMIN_SUCESSO, "uid_admin", String.valueOf(adminCriado.getId()), "email_admin", adminCriado.getEmail());
                 registroServico.registrarEventoDoSistema(LogEventosMIDs.SETUP_ADMIN_SUCESSO_GUI, Map.of("emailAdmin", adminCriado.getEmail(), "uidAdmin", String.valueOf(adminCriado.getId()), "kidChaveiro", String.valueOf(adminCriado.getKid() != null ? adminCriado.getKid() : "N/A")));
-                JOptionPane.showMessageDialog(this, "Administrador configurado com sucesso!\nE-mail: " + adminCriado.getEmail() + "\nNome: " + adminCriado.getNome(), "Setup Concluído", JOptionPane.INFORMATION_MESSAGE);
                 
+                System.out.println("[MainFrame.onSetupAdminSubmit] JOptionPane de sucesso foi pulado (para teste). Chamando showTotpQrCodePanel..."); // Log de Debug
                 this.usuarioEmCadastro = adminCriado;
-                // showTotpQrCodePanel(adminCriado, senhaPessoal); // Comentado temporariamente para focar no fluxo de login pós-setup
-                showScreen(LOGIN_PANEL);
+                showTotpQrCodePanel(adminCriado, senhaPessoal); 
+                // showScreen(LOGIN_PANEL); // Mantém comentado
             } else {
                 registroServico.registrarEventoDoSistema(LogEventosMIDs.PARTIDA_SISTEMA_CADASTRO_ADMIN_FALHA, "motivo", "setupInitialAdmin retornou nulo");
                 JOptionPane.showMessageDialog(this, "Falha ao configurar o administrador. Verifique os logs.", "Erro no Setup", JOptionPane.ERROR_MESSAGE);

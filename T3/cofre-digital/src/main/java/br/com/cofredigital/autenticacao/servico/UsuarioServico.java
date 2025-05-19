@@ -196,6 +196,7 @@ public class UsuarioServico {
             byte[] chaveTotpCriptografada = Base64.getDecoder().decode(usuario.getChaveSecretaTotp());
             byte[] chaveTotpBytes = AESUtil.decrypt(chaveTotpCriptografada, chaveAES);
             String chavePlana = new String(chaveTotpBytes, StandardCharsets.UTF_8);
+            System.out.println("[UsuarioServico.obterChaveTotpDescriptografada] Chave TOTP descriptografada para " + email + ": " + chavePlana); // DEBUG
             
             registroServico.registrarEventoDoUsuario(LogEventosMIDs.AUTH_ETAPA3_CHAVE_TOTP_DEC_SUCESSO, uid, "email", email);
             return chavePlana;
