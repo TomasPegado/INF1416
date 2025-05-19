@@ -167,7 +167,7 @@ public class MainFrame extends JFrame {
                     boolean valido = totpServico.validarCodigo(chaveSecreta, codigo);
                     if (valido) {
                         setStatus("TOTP válido! Login completo.");
-                        MainFrame.this.registroServico.registrarEventoDoUsuario(LogEventosMIDs.AUTH_ETAPA3_VALIDACAO_SUCESSO_GUI, MainFrame.this.usuarioEmLogin.getId(), "email_usuario", MainFrame.this.usuarioEmLogin.getEmail());
+                        MainFrame.this.registroServico.registrarEventoDoUsuario(LogEventosMIDs.AUTH_ETAPA3_VALIDACAO_SUCESSO_GUI, MainFrame.this.usuarioEmLogin.getId(), "email_usuario", MainFrame.this.usuarioEmLogin.getEmail(), "grupo_usuario", MainFrame.this.usuarioEmLogin.getGrupo());
 
                         if ("Administrador".equalsIgnoreCase(MainFrame.this.usuarioEmLogin.getGrupo())) {
                             adminMainPanel.setAdminLogado(MainFrame.this.usuarioEmLogin);
@@ -181,7 +181,7 @@ public class MainFrame extends JFrame {
                         // showScreen(MAIN_APP_PANEL); // Exemplo
                     } else {
                         setStatus("Código TOTP inválido.");
-                        MainFrame.this.registroServico.registrarEventoDoUsuario(LogEventosMIDs.AUTH_ETAPA3_CODIGO_INVALIDO_GUI, MainFrame.this.usuarioEmLogin.getId(), "email_usuario", MainFrame.this.usuarioEmLogin.getEmail());
+                        MainFrame.this.registroServico.registrarEventoDoUsuario(LogEventosMIDs.AUTH_ETAPA3_CODIGO_INVALIDO_GUI, MainFrame.this.usuarioEmLogin.getId(), "email_usuario", MainFrame.this.usuarioEmLogin.getEmail(), "grupo_usuario", MainFrame.this.usuarioEmLogin.getGrupo());
                         // TODO: Implementar lógica de tentativas de TOTP e bloqueio se necessário
                     }
                 } catch (Exception ex) {
@@ -268,14 +268,16 @@ public class MainFrame extends JFrame {
                 // Se for um admin logado (usuarioEmLogin != null e é admin), logar com UID dele.
                 // Por agora, um log genérico.
                 Long operadorUid = (usuarioEmLogin != null) ? usuarioEmLogin.getId() : null;
-                registroServico.registrarEventoDoUsuario(LogEventosMIDs.CAD_TELA_APRESENTADA_GUI, operadorUid, "contexto", "cadastro_usuario");
+                String operadorEmail = (usuarioEmLogin != null) ? usuarioEmLogin.getEmail() : null;
+                String operadorGrupo = (usuarioEmLogin != null) ? usuarioEmLogin.getGrupo() : null;
+                registroServico.registrarEventoDoUsuario(LogEventosMIDs.CAD_TELA_APRESENTADA_GUI, operadorUid, "email_operador", operadorEmail, "grupo_operador", operadorGrupo, "contexto", "cadastro_usuario");
             } else if (TOTP_VALIDATION_PANEL.equals(panelName)) {
                 TotpValidationPanel tvp = (TotpValidationPanel) getPanelByName(TOTP_VALIDATION_PANEL);
                 if (tvp != null) {
                     tvp.resetFields();
                     if (usuarioEmLogin != null) {
                         tvp.setCurrentUserEmailForLog(usuarioEmLogin.getEmail());
-                        registroServico.registrarEventoDoUsuario(LogEventosMIDs.AUTH_ETAPA3_TELA_APRESENTADA_GUI, usuarioEmLogin.getId(), "email_usuario", usuarioEmLogin.getEmail());
+                        registroServico.registrarEventoDoUsuario(LogEventosMIDs.AUTH_ETAPA3_TELA_APRESENTADA_GUI, usuarioEmLogin.getId(), "email_usuario", usuarioEmLogin.getEmail(), "grupo_usuario", usuarioEmLogin.getGrupo());
                     } else {
                         registroServico.registrarEventoDoSistema(LogEventosMIDs.AUTH_ETAPA3_TELA_APRESENTADA_GUI, "erro", "usuario_contexto_ausente_para_log_tela_totp");
                     }
@@ -371,8 +373,8 @@ public class MainFrame extends JFrame {
             );
 
             if (adminCriado != null) {
-                 registroServico.registrarEventoDoSistema(LogEventosMIDs.PARTIDA_SISTEMA_CADASTRO_ADMIN_SUCESSO, "uid_admin", String.valueOf(adminCriado.getId()), "email_admin", adminCriado.getEmail());
-                registroServico.registrarEventoDoSistema(LogEventosMIDs.SETUP_ADMIN_SUCESSO_GUI, Map.of("emailAdmin", adminCriado.getEmail(), "uidAdmin", String.valueOf(adminCriado.getId()), "kidChaveiro", String.valueOf(adminCriado.getKid() != null ? adminCriado.getKid() : "N/A")));
+                 registroServico.registrarEventoDoSistema(LogEventosMIDs.PARTIDA_SISTEMA_CADASTRO_ADMIN_SUCESSO, "uid_admin", String.valueOf(adminCriado.getId()), "email_admin", adminCriado.getEmail(), "grupo_admin", adminCriado.getGrupo());
+                registroServico.registrarEventoDoSistema(LogEventosMIDs.SETUP_ADMIN_SUCESSO_GUI, Map.of("emailAdmin", adminCriado.getEmail(), "uidAdmin", String.valueOf(adminCriado.getId()), "kidChaveiro", String.valueOf(adminCriado.getKid() != null ? adminCriado.getKid() : "N/A"), "grupo_admin", adminCriado.getGrupo()));
                 
                 System.out.println("[MainFrame.onSetupAdminSubmit] JOptionPane de sucesso foi pulado (para teste). Chamando showTotpQrCodePanel..."); // Log de Debug
                 this.usuarioEmCadastro = adminCriado;
@@ -425,7 +427,7 @@ public class MainFrame extends JFrame {
         if (this.registroServico != null && this.usuarioEmLogin != null) {
             this.registroServico.registrarEventoDoUsuario(LogEventosMIDs.AUTH_LOGOUT_USUARIO, 
                                                         this.usuarioEmLogin.getId(), 
-                                                        "email_usuario", this.usuarioEmLogin.getEmail());
+                                                        "email_usuario", this.usuarioEmLogin.getEmail(), "grupo_usuario", this.usuarioEmLogin.getGrupo());
         } else if (this.registroServico != null) {
              this.registroServico.registrarEventoDoSistema(LogEventosMIDs.AUTH_LOGOUT_USUARIO, "detalhe", "Usuário já era nulo ou registroServiço indisponível no logout");
         }

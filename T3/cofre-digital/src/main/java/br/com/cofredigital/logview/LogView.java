@@ -58,16 +58,26 @@ public class LogView {
                 Optional<Mensagem> mensagemOpt = mensagemDAO.buscarPorId(reg.getMid());
                 String mensagemTexto = mensagemOpt.map(Mensagem::getTextoMensagem).orElse("[Mensagem não encontrada para MID " + reg.getMid() + "]");
                 // Substituir parâmetros na mensagem, se necessário
+                // 1. Substituir <login_name> se presente
                 if (mensagemTexto.contains("<login_name>") && reg.getUid() != null) {
-                    // Buscar nome do usuário pelo UID
                     Optional<Usuario> userOpt = usuarioDAO.buscarPorId(reg.getUid());
                     String loginName = userOpt.map(Usuario::getNome).orElse("uid=" + reg.getUid());
                     mensagemTexto = mensagemTexto.replace("<login_name>", loginName);
                 }
-                if (mensagemTexto.contains("<arq_name>") && reg.getDetalhesAdicionais() != null) {
-                    mensagemTexto = mensagemTexto.replace("<arq_name>", reg.getDetalhesAdicionais());
+                // 2. Substituir todos os placeholders presentes em detalhesAdicionais
+                if (reg.getDetalhesAdicionais() != null && !reg.getDetalhesAdicionais().isEmpty()) {
+                    // Parse simples: chave1='valor1', chave2='valor2'
+                    String[] partes = reg.getDetalhesAdicionais().split(", ");
+                    for (String parte : partes) {
+                        int idx = parte.indexOf("='");
+                        if (idx > 0 && parte.endsWith("'")) {
+                            String chave = parte.substring(0, idx);
+                            String valor = parte.substring(idx + 2, parte.length() - 1).replace("''", "'");
+                            String placeholder = "<" + chave + ">";
+                            mensagemTexto = mensagemTexto.replace(placeholder, valor);
+                        }
+                    }
                 }
-                // Exibir data/hora, mensagem, UID, detalhes
                 String dataHora = reg.getDataHora() != null ? reg.getDataHora().toString() : "[sem data]";
                 System.out.printf("[%s] %s\n", dataHora, mensagemTexto);
             }

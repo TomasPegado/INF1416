@@ -324,7 +324,7 @@ public class UserRegistrationAdminPanel extends JPanel {
         }
         
         // Se confirmado, prosseguir com o cadastro
-        mainFrame.getRegistroServico().registrarEventoDoUsuario(LogEventosMIDs.CAD_CONFIRMACAO_DADOS_ACEITA, adminOperador.getId(), "email_certificado", certificateData.get("E-mail"));
+        mainFrame.getRegistroServico().registrarEventoDoUsuario(LogEventosMIDs.CAD_CONFIRMACAO_DADOS_ACEITA, adminOperador.getId(), "admin_email", adminOperador.getEmail(), "email_certificado", certificateData.get("E-mail"));
 
         // Obter GID do grupo (repetido, mas necessário após confirmação)
         int gid;
