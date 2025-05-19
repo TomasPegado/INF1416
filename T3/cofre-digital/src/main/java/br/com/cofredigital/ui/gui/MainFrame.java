@@ -106,10 +106,7 @@ public class MainFrame extends JFrame {
                 }
                 showScreen(TOTP_VALIDATION_PANEL);
             }
-            @Override
-            protected void onGoToCadastro() {
-                showScreen(CADASTRO_PANEL);
-            }
+            
         };
         loginPanel.setName(LOGIN_PANEL);
 
