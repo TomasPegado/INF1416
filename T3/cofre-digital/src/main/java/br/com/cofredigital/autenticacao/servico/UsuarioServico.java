@@ -720,24 +720,69 @@ public class UsuarioServico {
         return chaveiroDAO.buscarPorUid(uid);
     }
 
-    public Usuario cadastrarNovoUsuario(String nome, String email, String senha, int gid, 
+    public Usuario cadastrarNovoUsuario(String nomeInput, String emailInput, String senha, int gid, 
                                         String caminhoCertificado, String caminhoChavePrivada, 
                                         String fraseSecretaChave, Long adminUid) throws Exception {
         
-        registroServico.registrarEventoDoSistema(LogEventosMIDs.CAD_USUARIO_INICIO_FLUXO, "email", email, "adminUid", String.valueOf(adminUid));
-        System.out.println("[UsuarioServico] Iniciando cadastro de novo usuário: " + email + " por admin: " + adminUid + " (Log MID: " + LogEventosMIDs.CAD_USUARIO_INICIO_FLUXO + ")");
-
-        if (nome == null || nome.trim().isEmpty() || 
-            email == null || email.trim().isEmpty() || 
-            senha == null || senha.trim().isEmpty() || 
-            gid <= 0) {
-            registroServico.registrarEventoDoSistema(LogEventosMIDs.CAD_USUARIO_DADOS_INVALIDOS, "email", email, "nome", nome, "gid", String.valueOf(gid));
-            throw new IllegalArgumentException("Nome, email, senha e GID são obrigatórios para cadastrar novo usuário.");
+        // Validação dos caminhos do certificado e chave, e frase secreta
+        if (StringUtil.isAnyEmpty(caminhoCertificado, caminhoChavePrivada, fraseSecretaChave)) {
+            registroServico.registrarEventoDoSistema(LogEventosMIDs.CAD_USUARIO_DADOS_INVALIDOS,
+                "motivo", "Certificado, chave privada e frase secreta são obrigatórios para este tipo de cadastro.",
+                "adminUid", String.valueOf(adminUid));
+            throw new IllegalArgumentException("Caminho do certificado, caminho da chave privada e frase secreta são obrigatórios.");
         }
 
-        if (usuarioDAO.emailExiste(email)) {
-            registroServico.registrarEventoDoSistema(LogEventosMIDs.CAD_EMAIL_JA_EXISTE_NOVO_USUARIO, "email", email);
-            throw new IllegalArgumentException("Email já cadastrado: " + email);
+        if (StringUtil.isAnyEmpty(senha) || gid <= 0) {
+            registroServico.registrarEventoDoSistema(LogEventosMIDs.CAD_USUARIO_DADOS_INVALIDOS,
+                "motivo", "Senha e GID válidos são obrigatórios.", "adminUid", String.valueOf(adminUid));
+            throw new IllegalArgumentException("Senha e GID válidos são obrigatórios.");
+        }
+
+        X509Certificate certificate;
+        PrivateKey privateKey;
+        String certificadoPemString;
+        byte[] chavePrivadaBytesParaChaveiro; // Usado para armazenar no Chaveiro (PKCS#8 DER criptografado)
+        String nomeExtraidoCert;
+        String emailExtraidoCert;
+
+        // Processar certificado PRIMEIRO para obter nome e email
+        try {
+            System.out.println("[UsuarioServico.cadastrarNovoUsuario] Processando certificado fornecido: " + caminhoCertificado);
+            certificate = CertificateUtil.loadCertificateFromFile(caminhoCertificado);
+            if (certificate == null) {
+                registroServico.registrarEventoDoSistema(LogEventosMIDs.CAD_CERTIFICADO_PATH_INVALIDO, "adminUid", String.valueOf(adminUid), "caminho", caminhoCertificado);
+                throw new IllegalArgumentException("Falha ao carregar o certificado do arquivo: " + caminhoCertificado);
+            }
+
+            nomeExtraidoCert = CertificateUtil.extractCNFromCertificate(certificate);
+            emailExtraidoCert = CertificateUtil.extractEmailFromCertificate(certificate);
+
+            if (StringUtil.isAnyEmpty(emailExtraidoCert)) {
+                registroServico.registrarEventoDoSistema(LogEventosMIDs.CAD_USUARIO_DADOS_INVALIDOS, "adminUid", String.valueOf(adminUid), "motivo", "Email não pôde ser extraído do certificado.");
+                throw new IllegalArgumentException("Não foi possível extrair o e-mail do certificado fornecido.");
+            }
+            if (StringUtil.isAnyEmpty(nomeExtraidoCert)) {
+                nomeExtraidoCert = emailExtraidoCert; // Default para email se CN não encontrado
+            }
+            certificadoPemString = CertificateUtil.convertToPem(certificate);
+
+        } catch (CertificateException | IOException e) {
+            registroServico.registrarEventoDoSistema(LogEventosMIDs.CAD_CERTIFICADO_PATH_INVALIDO, "adminUid", String.valueOf(adminUid), "caminho", caminhoCertificado, "erro", e.getMessage());
+            throw new Exception("Erro ao processar arquivo de certificado: " + e.getMessage(), e);
+        } catch (IllegalArgumentException iae) { // Captura as exceções de validação de nome/email do cert
+            throw iae; 
+        } catch (Exception e) { // Outras exceções genéricas ao processar certificado
+             registroServico.registrarEventoDoSistema(LogEventosMIDs.CAD_CERTIFICADO_PATH_INVALIDO, "adminUid", String.valueOf(adminUid), "caminho", caminhoCertificado, "erro_inesperado", e.getMessage());
+            throw new Exception("Erro inesperado ao processar certificado: " + e.getMessage(), e);
+        }
+        
+        // Agora que temos emailExtraidoCert, podemos logar corretamente e verificar existência
+        registroServico.registrarEventoDoSistema(LogEventosMIDs.CAD_USUARIO_INICIO_FLUXO, "email_novo_usuario", emailExtraidoCert, "adminUid", String.valueOf(adminUid));
+        System.out.println("[UsuarioServico] Iniciando cadastro de novo usuário (email do cert): " + emailExtraidoCert + " por admin: " + adminUid + " (Log MID: " + LogEventosMIDs.CAD_USUARIO_INICIO_FLUXO + ")");
+
+        if (usuarioDAO.emailExiste(emailExtraidoCert)) {
+            registroServico.registrarEventoDoSistema(LogEventosMIDs.CAD_EMAIL_JA_EXISTE_NOVO_USUARIO, "email", emailExtraidoCert);
+            throw new IllegalArgumentException("Email extraído do certificado ('" + emailExtraidoCert + "') já cadastrado.");
         }
 
         Grupo grupo = grupoDAO.buscarPorId(gid)
@@ -746,105 +791,72 @@ public class UsuarioServico {
                     return new IllegalArgumentException("Grupo com GID " + gid + " não encontrado.");
                 });
 
-        X509Certificate certificate = null;
-        PrivateKey privateKey = null;
-        String certificadoPemString = null;
-        byte[] chavePrivadaBytesParaChaveiro = null; // Renomeado para clareza
-
-        if (caminhoCertificado != null && !caminhoCertificado.trim().isEmpty() &&
-            caminhoChavePrivada != null && !caminhoChavePrivada.trim().isEmpty() &&
-            fraseSecretaChave != null) { // Permitir frase secreta vazia se a chave PEM não for criptografada
-            
-            System.out.println("[UsuarioServico] Processando certificado e chave para: " + email);
-            try {
-                certificate = CertificateUtil.loadCertificateFromFile(caminhoCertificado);
-                if (certificate == null) {
-                    registroServico.registrarEventoDoSistema(LogEventosMIDs.CAD_CERTIFICADO_PATH_INVALIDO, "email", email, "caminho", caminhoCertificado);
-                    throw new RuntimeException("Falha ao carregar o certificado para o usuário: " + email);
-                }
-
-                PublicKey publicKey = CertificateUtil.getPublicKeyFromCertificate(certificate);
-                // Alterado: Chamar loadPrivateKeyFromPEMFile diretamente
-                //privateKey = PrivateKeyUtil.loadPrivateKeyFromPEMFile(caminhoChavePrivada, fraseSecretaChave);
-                // Alterado para usar o método que primeiro decriptografa AES e depois extrai PEM
-                privateKey = PrivateKeyUtil.loadEncryptedPKCS8PrivateKey(caminhoChavePrivada, fraseSecretaChave);
-
-                if (privateKey == null) {
-                    registroServico.registrarEventoDoSistema(LogEventosMIDs.CAD_CHAVE_PRIVADA_FRASE_SECRETA_INVALIDA, "email", email, "path_chave", caminhoChavePrivada);
-                    System.err.println("[UsuarioServico.cadastrarNovoUsuario] Falha ao carregar/decriptografar chave privada PEM para " + email);
-                    throw new SecurityException("Falha ao carregar ou decriptografar a chave privada PEM para " + email + ". Frase secreta pode estar incorreta ou arquivo corrompido/não encontrado.");
-                }
-                
-                // Exportar a chave privada para PKCS#8 DER criptografado usando a frase secreta
-                byte[] chavePrivadaDerCriptografada;
-                try {
-                    JcaPKCS8EncryptedPrivateKeyInfoBuilder pkcs8Builder =
-                        new JcaPKCS8EncryptedPrivateKeyInfoBuilder(privateKey);
-                    OutputEncryptor encryptor =
-                        new JcePKCSPBEOutputEncryptorBuilder(
-                            org.bouncycastle.asn1.pkcs.PKCSObjectIdentifiers.pbeWithSHAAnd3_KeyTripleDES_CBC)
-                                .setProvider("BC")
-                                .build(fraseSecretaChave.toCharArray());
-                    PKCS8EncryptedPrivateKeyInfo encryptedInfo = pkcs8Builder.build(encryptor);
-                    chavePrivadaDerCriptografada = encryptedInfo.getEncoded();
-                } catch (Exception e) {
-                    System.err.println("[UsuarioServico] Erro ao exportar chave privada para PKCS#8 DER criptografado: " + e.getMessage());
-                    throw new RuntimeException("Erro ao exportar chave privada para PKCS#8 DER criptografado.", e);
-                }
-                // Armazenar no Chaveiro (BD) - usar chavePrivadaDerCriptografada
-                try {
-                    chavePrivadaBytesParaChaveiro = Files.readAllBytes(Paths.get(caminhoChavePrivada));
-                } catch (IOException ioe) {
-                    System.err.println("[UsuarioServico.cadastrarNovoUsuario] Erro ao ler os bytes do arquivo da chave privada para armazenamento no chaveiro (" + email + "): " + caminhoChavePrivada + " - " + ioe.getMessage());
-                    registroServico.registrarEventoDoSistema(LogEventosMIDs.CAD_CHAVE_PRIVADA_PATH_INVALIDO, "email", email, "path_chave", caminhoChavePrivada, "erro_leitura_bytes", ioe.getMessage());
-                    throw new IOException("Erro ao ler os bytes do arquivo da chave privada para armazenamento ("+email+"): " + ioe.getMessage(), ioe);
-                }
-
-                if (!PrivateKeyUtil.validatePrivateKeyWithPublicKey(privateKey, publicKey)) {
-                    registroServico.registrarEventoDoSistema(LogEventosMIDs.CAD_CHAVE_PRIVADA_ASSINATURA_INVALIDA, "email", email, "path_chave", caminhoChavePrivada, "path_cert", caminhoCertificado);
-                    throw new SecurityException("Chave privada não corresponde ao certificado para " + email);
-                }
-                certificadoPemString = CertificateUtil.convertToPem(certificate);
-
-            } catch (CertificateException | IOException e) {
-                throw new Exception("Erro ao processar arquivos de certificado ou chave privada para " + email + ": " + e.getMessage(), e);
-            } catch (SecurityException e) {
-                throw e; 
-            } catch (Exception e) {
-                throw new Exception("Erro inesperado na configuração criptográfica para " + email + ": " + e.getMessage(), e);
+        // Processar chave privada e validar par com certificado
+        // A frase secreta da chave privada deve ser testada e a chave privada deve ser verificada...
+        try {
+            // System.out.println("[UsuarioServico] Processando chave privada: " + caminhoChavePrivada); // Log redundante, já temos o caminho
+            // Validar e carregar chave privada
+            if (!validarChavePrivadaComFrase(caminhoChavePrivada, fraseSecretaChave, certificate)) {
+                 registroServico.registrarEventoDoSistema(LogEventosMIDs.CAD_CHAVE_PRIVADA_ASSINATURA_INVALIDA, "email", emailExtraidoCert, "path_chave", caminhoChavePrivada);
+                 throw new SecurityException("A chave privada fornecida não pôde ser validada com o certificado ou a frase secreta está incorreta.");
             }
-        } else {
-            System.out.println("[UsuarioServico] Cadastro de " + email + " sem certificado/chave privada inicial (será apenas por senha/TOTP).");
-            registroServico.registrarEventoDoSistema(LogEventosMIDs.CAD_USUARIO_SEM_CERTIFICADO_INICIAL, "email", email);
-        }
+            // Se chegou aqui, a chave é válida com a frase e corresponde ao certificado.
+            // Agora, carregue a chave privada para criptografá-la para armazenamento.
+            PrivateKey pkToEncrypt = PrivateKeyUtil.loadEncryptedPKCS8PrivateKey(caminhoChavePrivada, fraseSecretaChave);
+             if (pkToEncrypt == null) { // Dupla checagem, embora validarChavePrivadaComFrase já faça isso.
+                throw new SecurityException("Falha ao recarregar a chave privada para criptografia, mesmo após validação inicial.");
+            }
 
+            JcaPKCS8EncryptedPrivateKeyInfoBuilder pkcs8Builder =
+                new JcaPKCS8EncryptedPrivateKeyInfoBuilder(pkToEncrypt);
+            OutputEncryptor encryptor =
+                new JcePKCSPBEOutputEncryptorBuilder(
+                    org.bouncycastle.asn1.pkcs.PKCSObjectIdentifiers.pbeWithSHAAnd3_KeyTripleDES_CBC)
+                        .setProvider("BC")
+                        .build(fraseSecretaChave.toCharArray());
+            PKCS8EncryptedPrivateKeyInfo encryptedInfo = pkcs8Builder.build(encryptor);
+            chavePrivadaBytesParaChaveiro = encryptedInfo.getEncoded(); // Este é o formato binário criptografado para o BD
+
+        } catch (SecurityException se) {
+            throw se; // Relança exceções de segurança já logadas ou específicas
+        } catch (Exception e) {
+            registroServico.registrarEventoDoSistema(LogEventosMIDs.CAD_CHAVE_PRIVADA_PATH_INVALIDO, "email", emailExtraidoCert, "path_chave", caminhoChavePrivada, "erro_proc_chave", e.getMessage());
+            throw new Exception("Erro ao processar ou validar a chave privada: " + e.getMessage(), e);
+        }
+        
         String chaveSecretaTotpBase32 = totpServico.gerarChaveSecreta();
         String hashSenha = PasswordUtil.hashPassword(senha);
 
         Usuario novoUsuario = new Usuario();
-        novoUsuario.setNome(nome);
-        novoUsuario.setEmail(email);
+        novoUsuario.setNome(nomeExtraidoCert); // Usar nome do certificado
+        novoUsuario.setEmail(emailExtraidoCert); // Usar email do certificado
         novoUsuario.setSenha(hashSenha);
         novoUsuario.setGrupo(grupo.getNomeGrupo());
+        novoUsuario.setContaAtiva(true);
         
         try {
             SecretKey chaveAESParaTotp = AESUtil.generateKeyFromSecret(senha, 256);
             byte[] chaveTotpCriptografadaBytes = AESUtil.encrypt(chaveSecretaTotpBase32.getBytes(StandardCharsets.UTF_8), chaveAESParaTotp);
             novoUsuario.setChaveSecretaTotp(Base64.getEncoder().encodeToString(chaveTotpCriptografadaBytes));
         } catch (Exception e) {
-            throw new Exception("Falha ao criptografar a chave TOTP para o usuário " + email, e);
+            throw new Exception("Falha ao criptografar a chave TOTP para o usuário " + emailExtraidoCert, e);
         }
         
         Usuario usuarioSalvo = usuarioDAO.salvar(novoUsuario, gid);
 
         Integer kidSalvo = null;
-        if (certificate != null && privateKey != null && certificadoPemString != null && chavePrivadaBytesParaChaveiro != null) {
+        // certificadoPemString e chavePrivadaBytesParaChaveiro devem estar populados se chegou aqui
+        if (certificadoPemString != null && chavePrivadaBytesParaChaveiro != null) {
             Chaveiro novoChaveiro = new Chaveiro(0, usuarioSalvo.getId(), certificadoPemString, chavePrivadaBytesParaChaveiro);
             Chaveiro chaveiroSalvo = chaveiroDAO.salvar(novoChaveiro);
             usuarioDAO.atualizarKidPadrao(usuarioSalvo.getId(), chaveiroSalvo.getKid());
             usuarioSalvo.setKid(chaveiroSalvo.getKid()); 
             kidSalvo = chaveiroSalvo.getKid();
-            System.out.println("[UsuarioServico] Chaveiro salvo para " + email + " com KID: " + kidSalvo);
+            System.out.println("[UsuarioServico] Chaveiro salvo para " + emailExtraidoCert + " com KID: " + kidSalvo);
+        } else {
+            // Isso não deveria acontecer se as validações de cert/chave obrigatórios estiverem corretas no início
+            System.err.println("[UsuarioServico.cadastrarNovoUsuario] Alerta: Certificado PEM ou chave privada criptografada não disponíveis para salvar chaveiro para " + emailExtraidoCert);
+            registroServico.registrarEventoDoSistema(LogEventosMIDs.CAD_USUARIO_DADOS_INVALIDOS, "email", emailExtraidoCert, "motivo", "dados_chaveiro_ausentes_inesperadamente");
         }
         
         registroServico.registrarEventoDoSistema(LogEventosMIDs.CAD_USUARIO_SUCESSO, 

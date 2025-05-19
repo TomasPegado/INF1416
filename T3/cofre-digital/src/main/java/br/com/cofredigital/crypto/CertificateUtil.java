@@ -279,4 +279,37 @@ public class CertificateUtil {
         InputStream is = new ByteArrayInputStream(pemString.getBytes(StandardCharsets.UTF_8));
         return (X509Certificate) cf.generateCertificate(is);
     }
+
+    /**
+     * Extrai vários detalhes de um certificado X.509 para exibição.
+     *
+     * @param cert O certificado X.509.
+     * @return Um Map com os detalhes do certificado ou null se o certificado for null.
+     */
+    public static java.util.Map<String, String> extractCertificateDetails(X509Certificate cert) {
+        if (cert == null) {
+            return null;
+        }
+        java.util.Map<String, String> details = new java.util.LinkedHashMap<>(); // Preserva a ordem de inserção
+
+        // Ordem conforme roteiro
+        details.put("Sujeito (Friendly Name)", extractCNFromCertificate(cert));
+        details.put("E-mail", extractEmailFromCertificate(cert));
+        details.put("Versão", "v" + (cert.getVersion() + 1) + " (raw: " + cert.getVersion() + ")");
+        details.put("Série", cert.getSerialNumber().toString() + " (Hex: " + cert.getSerialNumber().toString(16) + ")");
+        details.put("Validade (Início)", cert.getNotBefore().toString());
+        details.put("Validade (Fim)", cert.getNotAfter().toString());
+        details.put("Tipo de Assinatura", cert.getSigAlgName());
+        details.put("Emissor", cert.getIssuerX500Principal().getName());
+        
+        // Adicionar o Subject DN completo também, pois o roteiro pede "Sujeito"
+        // e já temos "Sujeito (Friendly Name)" para o CN.
+        details.put("Sujeito (DN Completo)", cert.getSubjectX500Principal().getName());
+        
+        // Outros detalhes que podem ser úteis (opcional)
+        // details.put("Algoritmo da Chave Pública", cert.getPublicKey().getAlgorithm());
+        // details.put("OID do Algoritmo de Assinatura", cert.getSigAlgOID());
+
+        return details;
+    }
 } 

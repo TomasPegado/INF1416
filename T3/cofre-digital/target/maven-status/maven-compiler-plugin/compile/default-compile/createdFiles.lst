@@ -1,6 +1,7 @@
 br\com\cofredigital\ui\gui\AdminMainPanel$3.class
 br\com\cofredigital\ui\gui\CadastroUsuarioPanel.class
 br\com\cofredigital\persistencia\dao\MensagemDAO.class
+br\com\cofredigital\ui\gui\CertificateConfirmationDialog$2.class
 br\com\cofredigital\crypto\PrivateKeyUtil.class
 br\com\cofredigital\persistencia\modelo\Mensagem.class
 br\com\cofredigital\ui\gui\TotpValidationPanel.class
@@ -23,11 +24,13 @@ br\com\cofredigital\ui\gui\MainFrame$3.class
 br\com\cofredigital\autenticacao\modelo\Usuario.class
 br\com\cofredigital\crypto\PasswordUtil.class
 br\com\cofredigital\crypto\TOTP.class
+br\com\cofredigital\ui\gui\CertificateConfirmationDialog.class
 br\com\cofredigital\util\exception\UsuarioNaoEncontradoException.class
 br\com\cofredigital\persistencia\dao\GrupoDAO.class
 br\com\cofredigital\ui\gui\TecladoVirtualPanel.class
 br\com\cofredigital\persistencia\dao\RegistroDAO.class
 br\com\cofredigital\persistencia\dao\UsuarioDAOImpl.class
+br\com\cofredigital\ui\gui\CertificateConfirmationDialog$1.class
 br\com\cofredigital\persistencia\dao\ChaveiroDAO.class
 br\com\cofredigital\persistencia\DatabaseManager.class
 br\com\cofredigital\ui\gui\MainFrame$4.class
