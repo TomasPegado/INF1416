@@ -1,3 +1,5 @@
+// Gabriela Soares: 2210347
+// Tomás Lenzi: 2220711
 package br.com.cofredigital.ui.gui;
 
 import br.com.cofredigital.autenticacao.servico.UsuarioServico;
@@ -45,7 +47,7 @@ public class SetupAdminPanel extends JPanel {
     public SetupAdminPanel(UsuarioServico usuarioServico, RegistroServico registroServico, MainFrame mainFrame) {
         this.usuarioServico = usuarioServico;
         this.registroServico = registroServico;
-        this.mainFrame = mainFrame;
+        this.mainFrame = mainFrame;     
         setLayout(new GridBagLayout());
         setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
         setBackground(Color.WHITE);

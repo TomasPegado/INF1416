@@ -1,3 +1,5 @@
+// Gabriela Soares: 2210347
+// Tomás Lenzi: 2220711
 package br.com.cofredigital.crypto;
 
 import br.com.cofredigital.util.Base32; // Assuming Base32 is in this package

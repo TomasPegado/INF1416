@@ -1,3 +1,5 @@
+// Gabriela Soares: 2210347
+// Tomás Lenzi: 2220711
 package br.com.cofredigital.persistencia.dao;
 
 import br.com.cofredigital.persistencia.modelo.Mensagem;
