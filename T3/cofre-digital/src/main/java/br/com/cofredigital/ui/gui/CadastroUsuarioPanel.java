@@ -131,51 +131,32 @@ public class CadastroUsuarioPanel extends JPanel {
             // Essas validações são complexas e devem ser tratadas com atenção.
 
             try {
-                Usuario usuario = new Usuario();
-                // O nome e email devem ser extraídos do certificado digital, conforme o roteiro.
-                // Por enquanto, usamos o campo nome, mas isso será ajustado.
-                usuario.setNome(nome); 
-                usuario.setEmail(email); // O email também virá do certificado.
-                usuario.setGrupo(getGrupoSelecionado());
-
-                // A lógica de cadastro real é complexa e será tratada no UsuarioServico:
-                // 1. Ler certificado de caminhoCertificado.
-                // 2. Extrair nome e email do certificado e atualizar 'usuario'.
-                // 3. Ler chave privada de caminhoChavePrivada (que está criptografada).
-                // 4. Usar fraseSecreta para descriptografar a chave privada.
-                // 5. Validar chave privada com chave pública do certificado.
-                // 6. Se tudo ok, prosseguir com o hash da 'senha' (bcrypt), geração TOTP, etc.
-                // 7. Chamar um método em UsuarioServico como:
-                //    usuarioServico.registrarNovoUsuario(usuario, senha, caminhoCertificado, caminhoChavePrivada, fraseSecreta);
-                //    ou um método específico para o admin inicial.
-
-                // Placeholder para a chamada de serviço - SUBSTITUIR PELA LÓGICA REAL
-                System.out.println("--- Dados Coletados para Cadastro ---");
-                System.out.println("Nome: " + nome);
-                System.out.println("Email: " + email);
-                System.out.println("Caminho Cert.: " + caminhoCertificado);
-                System.out.println("Caminho Chave: " + caminhoChavePrivada);
-                System.out.println("Frase Secreta: " + fraseSecreta.replaceAll(".", "*")); // Não logar frase real
-                System.out.println("Grupo: " + getGrupoSelecionado());
-                System.out.println("Senha Pessoal: " + senha.replaceAll(".", "*"));
-                System.out.println("-------------------------------------");
-                
-                // Simulação de sucesso para manter o fluxo de UI
-                // Em uma implementação real, isso dependeria do resultado do UsuarioServico.
-                // usuarioServico.cadastrarUsuario(usuario, senha); // Linha antiga comentada
-
-                // Supondo que o UsuarioServico agora precise de mais dados ou tenha um método específico:
-                // Exemplo de chamada (precisa ser implementado no UsuarioServico):
-                // usuarioServico.processarCadastroCompleto(nome, email, senha, caminhoCertificado, caminhoChavePrivada, fraseSecreta, grupo);
-
-                statusLabel.setText("Dados de cadastro coletados. Processamento pendente."); // Mensagem temporária
-                // onCadastroSuccess(); // Manter por enquanto para o fluxo de UI, mas o sucesso real é do serviço
-                
-                // Para o fluxo de primeira execução do admin, o MainFrame tomará conta da chamada ao UsuarioServico
-                // com todos os dados necessários que este painel agora fornece através dos getters.
-                // Portanto, aqui apenas sinalizamos o sucesso para o MainFrame prosseguir.
-                onCadastroSuccess(); 
-
+                // --- NOVO FLUXO DE CADASTRO ---
+                // Buscar o GID do grupo selecionado
+                String grupoSelecionado = getGrupoSelecionado();
+                int gid = 2; // Default para "Usuário"
+                if ("Administrador".equalsIgnoreCase(grupoSelecionado)) gid = 1;
+                // O adminUid pode ser null ou obtido do contexto, aqui passamos null para simplificar
+                UsuarioServico.CadastroUsuarioResult result = usuarioServico.cadastrarNovoUsuario(
+                    nome, email, senha, gid, caminhoCertificado, caminhoChavePrivada, fraseSecreta, null
+                );
+                // Gerar URI otpauth://
+                String otpAuthUri = usuarioServico.getTotpServico().gerarUrlQRCode(result.chaveTotpBase32, result.usuario.getEmail());
+                // Gerar QR code como Data URI
+                // O método gerarImagemQrCodeComoDataUri é privado, então gere o QR code aqui se necessário
+                String qrCodeDataUri = null;
+                try {
+                    Class<?> totpServicoClass = usuarioServico.getTotpServico().getClass();
+                    java.lang.reflect.Method m = totpServicoClass.getDeclaredMethod("gerarImagemQrCodeComoDataUri", String.class);
+                    m.setAccessible(true);
+                    qrCodeDataUri = (String) m.invoke(usuarioServico.getTotpServico(), otpAuthUri);
+                } catch (Exception ex) {
+                    qrCodeDataUri = null;
+                }
+                // Exibir modal com chave e QR code
+                mostrarModalTotp(result.chaveTotpBase32, otpAuthUri, qrCodeDataUri);
+                statusLabel.setText("Usuário cadastrado com sucesso! Configure o TOTP.");
+                onCadastroSuccess();
             } catch (Exception ex) {
                 statusLabel.setText("Erro durante a tentativa de cadastro: " + ex.getMessage());
                 ex.printStackTrace(); // Para debugging
@@ -247,4 +228,30 @@ public class CadastroUsuarioPanel extends JPanel {
     // Callbacks para serem sobrescritos pelo MainFrame
     protected void onCadastroSuccess() {}
     protected void onGoToLogin() {}
+
+    private void mostrarModalTotp(String chaveTotp, String otpAuthUri, String qrCodeDataUri) {
+        JPanel panel = new JPanel();
+        panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
+        panel.add(new JLabel("Chave TOTP (para Google Authenticator):"));
+        JTextField chaveField = new JTextField(chaveTotp);
+        chaveField.setEditable(false);
+        panel.add(chaveField);
+        panel.add(new JLabel("URI otpauth://:"));
+        JTextField uriField = new JTextField(otpAuthUri);
+        uriField.setEditable(false);
+        panel.add(uriField);
+        if (qrCodeDataUri != null) {
+            try {
+                String base64 = qrCodeDataUri.substring(qrCodeDataUri.indexOf(",") + 1);
+                byte[] imageBytes = java.util.Base64.getDecoder().decode(base64);
+                ImageIcon icon = new ImageIcon(imageBytes);
+                JLabel qrLabel = new JLabel(icon);
+                panel.add(new JLabel("QR Code para escanear:"));
+                panel.add(qrLabel);
+            } catch (Exception e) {
+                panel.add(new JLabel("(Falha ao exibir QR code)"));
+            }
+        }
+        JOptionPane.showMessageDialog(this, panel, "Configuração TOTP", JOptionPane.INFORMATION_MESSAGE);
+    }
 } 

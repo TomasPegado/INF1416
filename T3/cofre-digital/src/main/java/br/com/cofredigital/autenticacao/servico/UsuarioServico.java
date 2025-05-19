@@ -720,7 +720,16 @@ public class UsuarioServico {
         return chaveiroDAO.buscarPorUid(uid);
     }
 
-    public Usuario cadastrarNovoUsuario(String nomeInput, String emailInput, String senha, int gid, 
+    public static class CadastroUsuarioResult {
+        public final Usuario usuario;
+        public final String chaveTotpBase32;
+        public CadastroUsuarioResult(Usuario usuario, String chaveTotpBase32) {
+            this.usuario = usuario;
+            this.chaveTotpBase32 = chaveTotpBase32;
+        }
+    }
+
+    public CadastroUsuarioResult cadastrarNovoUsuario(String nomeInput, String emailInput, String senha, int gid, 
                                         String caminhoCertificado, String caminhoChavePrivada, 
                                         String fraseSecretaChave, Long adminUid) throws Exception {
         
@@ -867,6 +876,10 @@ public class UsuarioServico {
         // //     "adminUid", String.valueOf(adminUid)
         // // );
         System.out.println("[UsuarioServico] Usuário " + usuarioSalvo.getEmail() + " cadastrado com sucesso. UID: " + usuarioSalvo.getId() + ". Chave TOTP (plana - para debug): " + chaveSecretaTotpBase32);
-        return usuarioSalvo;
+        return new CadastroUsuarioResult(usuarioSalvo, chaveSecretaTotpBase32);
+    }
+
+    public TotpServico getTotpServico() {
+        return this.totpServico;
     }
 }

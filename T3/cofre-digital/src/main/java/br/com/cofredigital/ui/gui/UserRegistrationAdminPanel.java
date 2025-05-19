@@ -344,7 +344,7 @@ public class UserRegistrationAdminPanel extends JPanel {
         try {
             // Nome e Email são passados como null, pois o UsuarioServico.cadastrarNovoUsuario
             // foi modificado para extraí-los do certificado (caminhoCertificado é passado).
-            Usuario novoUsuario = usuarioServico.cadastrarNovoUsuario(
+            UsuarioServico.CadastroUsuarioResult result = usuarioServico.cadastrarNovoUsuario(
                 null, // nomeInput - será extraído do cert pelo serviço
                 null, // emailInput - será extraído do cert pelo serviço
                 senha,
@@ -354,16 +354,54 @@ public class UserRegistrationAdminPanel extends JPanel {
                 passphrase, 
                 adminOperador.getId()
             );
+            Usuario novoUsuario = result.usuario;
+
+            // Gerar URI otpauth://
+            String otpAuthUri = usuarioServico.getTotpServico().gerarUrlQRCode(result.chaveTotpBase32, novoUsuario.getEmail());
+            // Gerar QR code como Data URI (usando reflection pois o método é privado)
+            String qrCodeDataUri = null;
+            try {
+                Class<?> totpServicoClass = usuarioServico.getTotpServico().getClass();
+                java.lang.reflect.Method m = totpServicoClass.getDeclaredMethod("gerarImagemQrCodeComoDataUri", String.class);
+                m.setAccessible(true);
+                qrCodeDataUri = (String) m.invoke(usuarioServico.getTotpServico(), otpAuthUri);
+            } catch (Exception ex) {
+                qrCodeDataUri = null;
+            }
+            mostrarModalTotp(result.chaveTotpBase32, otpAuthUri, qrCodeDataUri);
 
             JOptionPane.showMessageDialog(this, "Usuário '" + novoUsuario.getEmail() + "' cadastrado com sucesso!", "Cadastro Concluído", JOptionPane.INFORMATION_MESSAGE);
-            // Roteiro: "Se o cadastro for efetivado, deve-se retornar à Tela de Cadastro com o formulário vazio."
             prepareForm(this.adminOperador); 
 
         } catch (Exception ex) {
             JOptionPane.showMessageDialog(this, "Erro ao cadastrar usuário (após confirmação): " + ex.getMessage(), "Erro no Cadastro", JOptionPane.ERROR_MESSAGE);
-            // Se falhar aqui, o roteiro diz "retornar à Tela de Cadastro com o formulário preenchido"
-            // Os dados já estão nos campos, então não limpamos.
             ex.printStackTrace();
         }
+    }
+
+    private void mostrarModalTotp(String chaveTotp, String otpAuthUri, String qrCodeDataUri) {
+        JPanel panel = new JPanel();
+        panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
+        panel.add(new JLabel("Chave TOTP (para Google Authenticator):"));
+        JTextField chaveField = new JTextField(chaveTotp);
+        chaveField.setEditable(false);
+        panel.add(chaveField);
+        panel.add(new JLabel("URI otpauth://:"));
+        JTextField uriField = new JTextField(otpAuthUri);
+        uriField.setEditable(false);
+        panel.add(uriField);
+        if (qrCodeDataUri != null) {
+            try {
+                String base64 = qrCodeDataUri.substring(qrCodeDataUri.indexOf(",") + 1);
+                byte[] imageBytes = java.util.Base64.getDecoder().decode(base64);
+                ImageIcon icon = new ImageIcon(imageBytes);
+                JLabel qrLabel = new JLabel(icon);
+                panel.add(new JLabel("QR Code para escanear:"));
+                panel.add(qrLabel);
+            } catch (Exception e) {
+                panel.add(new JLabel("(Falha ao exibir QR code)"));
+            }
+        }
+        JOptionPane.showMessageDialog(this, panel, "Configuração TOTP", JOptionPane.INFORMATION_MESSAGE);
     }
 } 
