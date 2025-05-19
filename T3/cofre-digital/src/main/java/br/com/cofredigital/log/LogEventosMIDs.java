@@ -41,6 +41,7 @@ public final class LogEventosMIDs {
     public static final int AUTH_LOGIN_LIBERADO = 2003; // Requer <login_name>
     public static final int AUTH_LOGIN_BLOQUEADO = 2004; // Requer <login_name>
     public static final int AUTH_LOGIN_NAO_IDENTIFICADO = 2005; // Requer <login_name>
+    public static final int AUTH_LOGOUT_USUARIO = 2006; // Requer <login_name> (do usuário que está deslogando)
 
     // Autenticação Etapa 2 - Senha (3xxx)
     public static final int AUTH_ETAPA2_INICIADA = 3001; // Requer <login_name>
@@ -72,6 +73,8 @@ public final class LogEventosMIDs {
     public static final int AUTH_ETAPA3_BOTAO_VALIDAR_PRESSIONADO_GUI = 4012; // Requer <login_name>
     public static final int AUTH_ETAPA3_CODIGO_INVALIDO_FORMATO_GUI = 4013; // Requer <login_name>, codigo_tentativa
     public static final int AUTH_ETAPA3_BOTAO_VOLTAR_PRESSIONADO_GUI = 4014; // Requer <login_name>
+    public static final int AUTH_ETAPA3_VALIDACAO_SUCESSO_GUI = 4015; // Requer <login_name> (GUI confirma que TOTP validado no backend)
+    public static final int AUTH_ETAPA3_CODIGO_INVALIDO_GUI = 4016;     // Requer <login_name> (GUI informa que backend indicou código inválido)
 
     // Tela Principal (5xxx)
     public static final int TELA_PRINCIPAL_APRESENTADA = 5001; // Requer <login_name>

@@ -27,6 +27,7 @@ C:\Users\Gabi\git-si\INF1416\T3\cofre-digital\src\main\java\br\com\cofredigital\
 C:\Users\Gabi\git-si\INF1416\T3\cofre-digital\src\main\java\br\com\cofredigital\tecladovirtual\TecladoVirtualAuthInput.java
 C:\Users\Gabi\git-si\INF1416\T3\cofre-digital\src\main\java\br\com\cofredigital\tecladovirtual\TecladoVirtualInputHandler.java
 C:\Users\Gabi\git-si\INF1416\T3\cofre-digital\src\main\java\br\com\cofredigital\tecladovirtual\TecladoVirtualLogic.java
+C:\Users\Gabi\git-si\INF1416\T3\cofre-digital\src\main\java\br\com\cofredigital\ui\gui\AdminMainPanel.java
 C:\Users\Gabi\git-si\INF1416\T3\cofre-digital\src\main\java\br\com\cofredigital\ui\gui\CadastroUsuarioPanel.java
 C:\Users\Gabi\git-si\INF1416\T3\cofre-digital\src\main\java\br\com\cofredigital\ui\gui\LoginPanel.java
 C:\Users\Gabi\git-si\INF1416\T3\cofre-digital\src\main\java\br\com\cofredigital\ui\gui\MainFrame.java
@@ -34,6 +35,7 @@ C:\Users\Gabi\git-si\INF1416\T3\cofre-digital\src\main\java\br\com\cofredigital\
 C:\Users\Gabi\git-si\INF1416\T3\cofre-digital\src\main\java\br\com\cofredigital\ui\gui\TecladoVirtualPanel.java
 C:\Users\Gabi\git-si\INF1416\T3\cofre-digital\src\main\java\br\com\cofredigital\ui\gui\TotpQrCodePanel.java
 C:\Users\Gabi\git-si\INF1416\T3\cofre-digital\src\main\java\br\com\cofredigital\ui\gui\TotpValidationPanel.java
+C:\Users\Gabi\git-si\INF1416\T3\cofre-digital\src\main\java\br\com\cofredigital\ui\gui\UserRegistrationAdminPanel.java
 C:\Users\Gabi\git-si\INF1416\T3\cofre-digital\src\main\java\br\com\cofredigital\ui\gui\ValidateAdminPassphrasePanel.java
 C:\Users\Gabi\git-si\INF1416\T3\cofre-digital\src\main\java\br\com\cofredigital\util\Base32.java
 C:\Users\Gabi\git-si\INF1416\T3\cofre-digital\src\main\java\br\com\cofredigital\util\exception\EmailJaExisteException.java

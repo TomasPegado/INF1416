@@ -38,6 +38,8 @@ public class MainFrame extends JFrame {
     public static final String TOTP_VALIDATION_PANEL = "TotpValidationPanel";
     public static final String SETUP_ADMIN_PANEL = "SetupAdminPanel";
     public static final String VALIDATE_ADMIN_PASSPHRASE_PANEL = "ValidateAdminPassphrasePanel";
+    public static final String ADMIN_MAIN_PANEL = "AdminMainPanel"; // Nova constante
+    public static final String USER_REGISTRATION_ADMIN_PANEL = "UserRegistrationAdminPanel"; // Nova constante
     // Adicionar outras constantes conforme necessário (ex: VALIDATE_ADMIN_PASSPHRASE_PANEL)
 
     // Estado temporário para integração do fluxo
@@ -48,6 +50,8 @@ public class MainFrame extends JFrame {
 
     private SetupAdminPanel setupAdminPanel;
     private ValidateAdminPassphrasePanel validateAdminPassphrasePanel;
+    private AdminMainPanel adminMainPanel; // Novo painel
+    private UserRegistrationAdminPanel userRegistrationAdminPanel; // Novo painel de cadastro pelo admin
 
     public MainFrame(UsuarioServico usuarioServico, TotpServico totpServico, RegistroServico registroServico) {
         this.usuarioServico = usuarioServico;
@@ -153,11 +157,27 @@ public class MainFrame extends JFrame {
                     boolean valido = totpServico.validarCodigo(chaveSecreta, codigo);
                     if (valido) {
                         setStatus("TOTP válido! Login completo.");
+                        MainFrame.this.registroServico.registrarEventoDoUsuario(LogEventosMIDs.AUTH_ETAPA3_VALIDACAO_SUCESSO_GUI, MainFrame.this.usuarioEmLogin.getId(), "email_usuario", MainFrame.this.usuarioEmLogin.getEmail());
+
+                        if ("Administrador".equalsIgnoreCase(MainFrame.this.usuarioEmLogin.getGrupo())) {
+                            adminMainPanel.setAdminLogado(MainFrame.this.usuarioEmLogin);
+                            showScreen(ADMIN_MAIN_PANEL);
+                        } else {
+                            // Para usuários não-administradores
+                            JOptionPane.showMessageDialog(MainFrame.this,
+                                "Login de usuário (" + MainFrame.this.usuarioEmLogin.getEmail() + ") bem-sucedido!",
+                                "Login Concluído",
+                                JOptionPane.INFORMATION_MESSAGE);
+                            //  Por enquanto, volta para a tela de login após sucesso de usuário comum
+                            //  Idealmente, haveria um UserMainPanel ou algo similar.
+                             logout(); // Ou showScreen(LOGIN_PANEL) diretamente se logout fizer mais coisas
+                        }
                         // TODO: Navegar para a tela principal da aplicação pós-login
                         // JOptionPane.showMessageDialog(MainFrame.this, "Login totalmente concluído!");
                         // showScreen(MAIN_APP_PANEL); // Exemplo
                     } else {
                         setStatus("Código TOTP inválido.");
+                        MainFrame.this.registroServico.registrarEventoDoUsuario(LogEventosMIDs.AUTH_ETAPA3_CODIGO_INVALIDO_GUI, MainFrame.this.usuarioEmLogin.getId(), "email_usuario", MainFrame.this.usuarioEmLogin.getEmail());
                         // TODO: Implementar lógica de tentativas de TOTP e bloqueio se necessário
                     }
                 } catch (Exception ex) {
@@ -187,12 +207,20 @@ public class MainFrame extends JFrame {
         validateAdminPassphrasePanel = new ValidateAdminPassphrasePanel(usuarioServico, registroServico, this);
         validateAdminPassphrasePanel.setName(VALIDATE_ADMIN_PASSPHRASE_PANEL);
 
+        adminMainPanel = new AdminMainPanel(this, usuarioServico); // Instanciação
+        adminMainPanel.setName(ADMIN_MAIN_PANEL);
+
+        userRegistrationAdminPanel = new UserRegistrationAdminPanel(this, usuarioServico); // Instanciação
+        userRegistrationAdminPanel.setName(USER_REGISTRATION_ADMIN_PANEL);
+
         mainPanel.add(loginPanel, LOGIN_PANEL);
         mainPanel.add(cadastroPanel, CADASTRO_PANEL);
         mainPanel.add(qrCodePanel, TOTP_QRCODE_PANEL);
         mainPanel.add(totpValidationPanel, TOTP_VALIDATION_PANEL);
         mainPanel.add(setupAdminPanel, SETUP_ADMIN_PANEL);
         mainPanel.add(validateAdminPassphrasePanel, VALIDATE_ADMIN_PASSPHRASE_PANEL);
+        mainPanel.add(adminMainPanel, ADMIN_MAIN_PANEL); // Adicionar ao CardLayout
+        mainPanel.add(userRegistrationAdminPanel, USER_REGISTRATION_ADMIN_PANEL); // Adicionar ao CardLayout
 
         add(mainPanel);
     }
@@ -240,6 +268,10 @@ public class MainFrame extends JFrame {
                     validateAdminPassphrasePanel.requestFocusInWindow();
                     validateAdminPassphrasePanel.limparCampo(); // Limpa o campo ao ser exibido
                 }
+            } else if (ADMIN_MAIN_PANEL.equals(panelName)) {
+                // Log já no construtor do painel
+            } else if (USER_REGISTRATION_ADMIN_PANEL.equals(panelName)) {
+                // Log já no construtor do painel
             }
             // Adicionar logs para outras telas conforme são implementadas (ex: TELA_PRINCIPAL_APRESENTADA)
         }
@@ -288,6 +320,10 @@ public class MainFrame extends JFrame {
 
     public TotpServico getTotpServico() {
         return totpServico;
+    }
+
+    public RegistroServico getRegistroServico() {
+        return registroServico;
     }
 
     public void onSetupAdminSubmit(String caminhoCert, String caminhoChave, String fraseSecreta, String senhaPessoal) {
@@ -347,15 +383,36 @@ public class MainFrame extends JFrame {
     }
 
     public void onAdminSetupComplete() {
-        System.out.println("DEBUG: MainFrame.onAdminSetupComplete() FOI CHAMADO INESPERADAMENTE E AGORA ESTÁ INOFENSIVO.");
-        // Limpar campos do setupAdminPanel pode ser feito no próprio painel ao concluir, ou aqui.
-        if (setupAdminPanel != null) {
-            // setupAdminPanel.limparCampos(); // Talvez a limpeza devesse ser aqui se este fosse o callback final.
-        }
-        // Nenhuma navegação aqui para evitar conflito.
+        // Log já feito pelo SetupAdminPanel
+        System.out.println("[MainFrame] Admin setup completo (onAdminSetupComplete). Navegando para LOGIN_PANEL.");
+        showScreen(LOGIN_PANEL);
     }
 
     public void onUserLoginRequired() {
-        // ... existing code ...
+         System.out.println("[MainFrame] User login required. Navegando para LOGIN_PANEL.");
+        showScreen(LOGIN_PANEL);
+    }
+    
+    // Novo método logout
+    public void logout() {
+        this.registroServico.registrarEventoDoUsuario(LogEventosMIDs.AUTH_LOGOUT_USUARIO, 
+                                                    (this.usuarioEmLogin != null ? this.usuarioEmLogin.getId() : null), 
+                                                    "email_usuario", (this.usuarioEmLogin != null ? this.usuarioEmLogin.getEmail() : "N/A"));
+        this.usuarioEmLogin = null;
+        // this.senhaEmLogin já deve ter sido limpa após uso no TotpValidationPanel
+        showScreen(LOGIN_PANEL);
+    }
+
+    // Novo método placeholder
+    public void showUserRegistrationPanel(Usuario adminLogado) {
+        if (userRegistrationAdminPanel != null) {
+            userRegistrationAdminPanel.prepareForm(adminLogado);
+            showScreen(USER_REGISTRATION_ADMIN_PANEL);
+        } else {
+            // Fallback ou log de erro se o painel não for inicializado
+            JOptionPane.showMessageDialog(this,
+                "Erro: Painel de Cadastro de Usuário (Admin) não está pronto.",
+                "Erro de Interface", JOptionPane.ERROR_MESSAGE);
+        }
     }
 } 
