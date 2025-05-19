@@ -123,30 +123,30 @@ public class UsuarioServico {
     public Usuario atualizar(Usuario usuario) {
         if (usuario == null || usuario.getId() == null) {
             // Log de erro interno, dados inválidos para atualização
-            // registroServico.registrarEventoDoSistema(MID_ATUALIZAR_USUARIO_DADOS_ENTRADA_INVALIDOS);
+            // // registroServico.registrarEventoDoSistema(MID_ATUALIZAR_USUARIO_DADOS_ENTRADA_INVALIDOS);
             throw new IllegalArgumentException("Dados do usuário inválidos para atualização.");
         }
         Long uid = usuario.getId();
         String emailNovo = usuario.getEmail();
-        registroServico.registrarEventoDoUsuario(LogEventosMIDs.USUARIO_ATUALIZAR_DADOS_INICIO, uid, "uid", String.valueOf(uid), "email_novo", emailNovo);
+        // // registroServico.registrarEventoDoUsuario(LogEventosMIDs.USUARIO_ATUALIZAR_DADOS_INICIO, uid, "uid", String.valueOf(uid), "email_novo", emailNovo);
 
         try {
             Usuario usuarioAntes = buscarPorId(uid); // Garante que o usuário existe e para pegar email antigo
             if (!usuarioAntes.getEmail().equals(emailNovo) && existsByEmail(emailNovo)) {
-                registroServico.registrarEventoDoUsuario(LogEventosMIDs.USUARIO_ATUALIZAR_DADOS_FALHA_EMAIL_JA_EXISTE, uid, "uid", String.valueOf(uid), "email_tentativa", emailNovo);
+                // // registroServico.registrarEventoDoUsuario(LogEventosMIDs.USUARIO_ATUALIZAR_DADOS_FALHA_EMAIL_JA_EXISTE, uid, "uid", String.valueOf(uid), "email_tentativa", emailNovo);
                 throw new EmailJaExisteException("Email já cadastrado para outro usuário: " + emailNovo);
             }
             // Aqui podem ser logadas as alterações específicas, se necessário, comparando usuarioAntes e usuario.
-            // Ex: if (!usuarioAntes.getNome().equals(usuario.getNome())) { registroServico.logAlteracao(...); }
+            // Ex: if (!usuarioAntes.getNome().equals(usuario.getNome())) { // registroServico.logAlteracao(...); }
             
             usuarioDAO.atualizar(usuario);
-            registroServico.registrarEventoDoUsuario(LogEventosMIDs.USUARIO_ATUALIZAR_DADOS_SUCESSO, uid, "uid", String.valueOf(uid), "email_atualizado", emailNovo);
+            // // registroServico.registrarEventoDoUsuario(LogEventosMIDs.USUARIO_ATUALIZAR_DADOS_SUCESSO, uid, "uid", String.valueOf(uid), "email_atualizado", emailNovo);
             return usuario; 
         } catch (SQLException e) {
-            registroServico.registrarEventoDoUsuario(LogEventosMIDs.USUARIO_ATUALIZAR_DADOS_FALHA_BD, uid, "uid", String.valueOf(uid), "email_tentativa", emailNovo, "erro_sql", e.getMessage());
+            // // registroServico.registrarEventoDoUsuario(LogEventosMIDs.USUARIO_ATUALIZAR_DADOS_FALHA_BD, uid, "uid", String.valueOf(uid), "email_tentativa", emailNovo, "erro_sql", e.getMessage());
             throw new RuntimeException("Erro de banco de dados ao atualizar usuário: " + emailNovo, e);
         } catch (UsuarioNaoEncontradoException e) { 
-            registroServico.registrarEventoDoSistema(LogEventosMIDs.USUARIO_ATUALIZAR_DADOS_FALHA_USUARIO_NAO_ENCONTRADO, "uid_tentativa", String.valueOf(uid));
+            // // registroServico.registrarEventoDoSistema(LogEventosMIDs.USUARIO_ATUALIZAR_DADOS_FALHA_USUARIO_NAO_ENCONTRADO, "uid_tentativa", String.valueOf(uid));
             throw e; // Relança a exceção original
         }
     }
@@ -158,9 +158,9 @@ public class UsuarioServico {
             Usuario usuario = buscarPorId(id); // Lança exceção se não encontrado, que será capturada abaixo
             usuario.bloquearAcessoPorMinutos(minutos);
             atualizar(usuario); // Persiste a alteração. O método atualizar() já tem seus próprios logs.
-            registroServico.registrarEventoDoUsuario(LogEventosMIDs.USUARIO_BLOQUEIO_MANUAL_ACIONADO, id, "uid_bloqueado", String.valueOf(id), "minutos", String.valueOf(minutos));
+            // // registroServico.registrarEventoDoUsuario(LogEventosMIDs.USUARIO_BLOQUEIO_MANUAL_ACIONADO, id, "uid_bloqueado", String.valueOf(id), "minutos", String.valueOf(minutos));
         } catch (UsuarioNaoEncontradoException e) {
-            registroServico.registrarEventoDoSistema(LogEventosMIDs.USUARIO_BLOQUEIO_FALHA_USUARIO_NAO_ENCONTRADO, "uid_tentativa_bloqueio", String.valueOf(id));
+            // // registroServico.registrarEventoDoSistema(LogEventosMIDs.USUARIO_BLOQUEIO_FALHA_USUARIO_NAO_ENCONTRADO, "uid_tentativa_bloqueio", String.valueOf(id));
             throw e; // Relança para a camada chamadora
         }
         // Outras exceções de 'atualizar()' serão propagadas e logadas por 'atualizar()'.
@@ -172,9 +172,9 @@ public class UsuarioServico {
             Usuario usuario = buscarPorId(id); // Lança exceção se não encontrado
             usuario.desbloquearAcesso();
             atualizar(usuario); // Persiste a alteração. O método atualizar() já tem seus próprios logs.
-            registroServico.registrarEventoDoUsuario(LogEventosMIDs.USUARIO_DESBLOQUEIO_MANUAL_ACIONADO, id, "uid_desbloqueado", String.valueOf(id));
+            // // registroServico.registrarEventoDoUsuario(LogEventosMIDs.USUARIO_DESBLOQUEIO_MANUAL_ACIONADO, id, "uid_desbloqueado", String.valueOf(id));
         } catch (UsuarioNaoEncontradoException e) {
-            registroServico.registrarEventoDoSistema(LogEventosMIDs.USUARIO_DESBLOQUEIO_FALHA_USUARIO_NAO_ENCONTRADO, "uid_tentativa_desbloqueio", String.valueOf(id));
+            // // registroServico.registrarEventoDoSistema(LogEventosMIDs.USUARIO_DESBLOQUEIO_FALHA_USUARIO_NAO_ENCONTRADO, "uid_tentativa_desbloqueio", String.valueOf(id));
             throw e; // Relança para a camada chamadora
         }
         // Outras exceções de 'atualizar()' serão propagadas e logadas por 'atualizar()'.
@@ -183,13 +183,13 @@ public class UsuarioServico {
     public String obterChaveTotpDescriptografada(Usuario usuario, String senhaCandidata) throws Exception {
         if (usuario == null) {
             // Não deveria acontecer se chamado corretamente, mas é uma guarda.
-            // registroServico.registrarEventoDoSistema(MID_INTERNO_USUARIO_NULO_OBTER_TOTP);
+            // // // registroServico.registrarEventoDoSistema(MID_INTERNO_USUARIO_NULO_OBTER_TOTP);
             throw new IllegalArgumentException("Usuário não pode ser nulo para obter chave TOTP.");
         }
         Long uid = usuario.getId();
         String email = usuario.getEmail();
 
-        registroServico.registrarEventoDoUsuario(LogEventosMIDs.AUTH_ETAPA3_CHAVE_TOTP_DEC_INICIO, uid, "email", email);
+        // // registroServico.registrarEventoDoUsuario(LogEventosMIDs.AUTH_ETAPA3_CHAVE_TOTP_DEC_INICIO, uid, "email", email);
 
         try {
             SecretKey chaveAES = AESUtil.generateKeyFromSecret(senhaCandidata, 256);
@@ -198,12 +198,12 @@ public class UsuarioServico {
             String chavePlana = new String(chaveTotpBytes, StandardCharsets.UTF_8);
             System.out.println("[UsuarioServico.obterChaveTotpDescriptografada] Chave TOTP descriptografada para " + email + ": " + chavePlana); // DEBUG
             
-            registroServico.registrarEventoDoUsuario(LogEventosMIDs.AUTH_ETAPA3_CHAVE_TOTP_DEC_SUCESSO, uid, "email", email);
+            // // registroServico.registrarEventoDoUsuario(LogEventosMIDs.AUTH_ETAPA3_CHAVE_TOTP_DEC_SUCESSO, uid, "email", email);
             return chavePlana;
         } catch (Exception e) {
             // A exceção aqui é provavelmente javax.crypto.BadPaddingException se a senha estiver errada
             // ou qualquer outra exceção de AESUtil.decrypt.
-            registroServico.registrarEventoDoUsuario(LogEventosMIDs.AUTH_ETAPA3_CHAVE_TOTP_DEC_FALHA, uid, "email", email, "erro", e.getClass().getSimpleName());
+            // // registroServico.registrarEventoDoUsuario(LogEventosMIDs.AUTH_ETAPA3_CHAVE_TOTP_DEC_FALHA, uid, "email", email, "erro", e.getClass().getSimpleName());
             // Relança a exceção para que a camada chamadora saiba que a descriptografia falhou.
             // A camada chamadora (provavelmente um serviço de autenticação de mais alto nível ou UI)
             // decidirá se isso conta como uma tentativa de token falha.
@@ -212,28 +212,28 @@ public class UsuarioServico {
     }
 
     public Optional<String> autenticarComTecladoVirtual(String email, List<Character[]> sequenciaPares) throws Exception {
-        registroServico.registrarEventoDoUsuario(LogEventosMIDs.AUTH_ETAPA2_INICIADA, null, "email", email); // UID será adicionado depois se o usuário for encontrado
+        // // registroServico.registrarEventoDoUsuario(LogEventosMIDs.AUTH_ETAPA2_INICIADA, null, "email", email); // UID será adicionado depois se o usuário for encontrado
 
         if (email == null || email.trim().isEmpty() || sequenciaPares == null || sequenciaPares.isEmpty()) {
             // Log de dados de entrada inválidos poderia ser adicionado se necessário
-            registroServico.registrarEventoDoUsuario(LogEventosMIDs.AUTH_ETAPA2_ENCERRADA, null, "email", email, "resultado", "entrada_invalida");
+            // // registroServico.registrarEventoDoUsuario(LogEventosMIDs.AUTH_ETAPA2_ENCERRADA, null, "email", email, "resultado", "entrada_invalida");
             return Optional.empty();
         }
 
         Usuario usuario = buscarPorEmail(email); 
         if (usuario == null) {
-            registroServico.registrarEventoDoUsuario(LogEventosMIDs.AUTH_LOGIN_NAO_IDENTIFICADO, null, "email_tentativa", email);
-            registroServico.registrarEventoDoUsuario(LogEventosMIDs.AUTH_ETAPA2_ENCERRADA, null, "email", email, "resultado", "usuario_nao_encontrado");
-            return Optional.empty(); 
+            // // registroServico.registrarEventoDoUsuario(LogEventosMIDs.AUTH_LOGIN_NAO_IDENTIFICADO, null, "email_tentativa", email);
+            // // registroServico.registrarEventoDoUsuario(LogEventosMIDs.AUTH_ETAPA2_ENCERRADA, null, "email", email, "resultado", "usuario_nao_encontrado");
+             return Optional.empty(); 
         }
         
         // Agora que temos o usuário, podemos usar seu UID nos logs subsequentes desta transação
         Long uidUsuario = usuario.getId();
 
         if (usuario.isAcessoBloqueado()) {
-            registroServico.registrarEventoDoUsuario(LogEventosMIDs.AUTH_LOGIN_BLOQUEADO, uidUsuario, "email", email, "bloqueado_ate", usuario.getBloqueadoAte().toString());
+            // // registroServico.registrarEventoDoUsuario(LogEventosMIDs.AUTH_LOGIN_BLOQUEADO, uidUsuario, "email", email, "bloqueado_ate", usuario.getBloqueadoAte().toString());
             System.err.println("Tentativa de login para usuário bloqueado: " + email + ". Bloqueado até: " + usuario.getBloqueadoAte());
-            registroServico.registrarEventoDoUsuario(LogEventosMIDs.AUTH_ETAPA2_ENCERRADA, uidUsuario, "email", email, "resultado", "usuario_bloqueado");
+            // // registroServico.registrarEventoDoUsuario(LogEventosMIDs.AUTH_ETAPA2_ENCERRADA, uidUsuario, "email", email, "resultado", "usuario_bloqueado");
             return Optional.empty(); 
         }
 
@@ -242,16 +242,16 @@ public class UsuarioServico {
             // Este é um estado inesperado, um usuário ativo deveria ter hash de senha.
             System.err.println("Usuário não possui hash de senha configurado: " + email);
             // Poderia ter um MID específico para "ERRO_INTERNO_SENHA_NAO_CONFIGURADA"
-            registroServico.registrarEventoDoUsuario(LogEventosMIDs.AUTH_ETAPA2_ENCERRADA, uidUsuario, "email", email, "resultado", "erro_interno_senha_ausente");
+            // // registroServico.registrarEventoDoUsuario(LogEventosMIDs.AUTH_ETAPA2_ENCERRADA, uidUsuario, "email", email, "resultado", "erro_interno_senha_ausente");
             return Optional.empty(); 
         }
 
         if (sequenciaPares.size() < 8 || sequenciaPares.size() > 10) { 
             // Log de tentativa com comprimento de senha inválido
-            System.err.println("Tentativa de login com comprimento de senha inválido: " + sequenciaPares.size() + " para usuário " + email);
+             System.err.println("Tentativa de login com comprimento de senha inválido: " + sequenciaPares.size() + " para usuário " + email);
             // Poderia ter um MID para "AUTH_SENHA_COMPRIMENTO_INVALIDO"
-            registroServico.registrarEventoDoUsuario(LogEventosMIDs.AUTH_ETAPA2_ENCERRADA, uidUsuario, "email", email, "resultado", "senha_comprimento_invalido");
-            return Optional.empty();
+            // // registroServico.registrarEventoDoUsuario(LogEventosMIDs.AUTH_ETAPA2_ENCERRADA, uidUsuario, "email", email, "resultado", "senha_comprimento_invalido");
+             return Optional.empty();
         }
 
         String senhaAutenticada = verificarCombinacoesDePares(new StringBuilder(), sequenciaPares, 0, senhaHash);
@@ -261,21 +261,21 @@ public class UsuarioServico {
             usuario.incrementarTotalAcessos(); 
             if(usuario.isAcessoBloqueado()) usuario.desbloquearAcesso(); 
             atualizar(usuario); 
-            registroServico.registrarEventoDoUsuario(LogEventosMIDs.AUTH_SENHA_OK, uidUsuario, "email", email);
-            registroServico.registrarEventoDoUsuario(LogEventosMIDs.AUTH_ETAPA2_ENCERRADA, uidUsuario, "email", email, "resultado", "sucesso");
+            // // registroServico.registrarEventoDoUsuario(LogEventosMIDs.AUTH_SENHA_OK, uidUsuario, "email", email);
+            // // registroServico.registrarEventoDoUsuario(LogEventosMIDs.AUTH_ETAPA2_ENCERRADA, uidUsuario, "email", email, "resultado", "sucesso");
             return Optional.of(senhaAutenticada);
         } else {
             usuario.registrarFalhaSenha();
             int tentativas = usuario.getTentativasFalhasSenha();
             
             if (tentativas == 1) {
-                registroServico.registrarEventoDoUsuario(LogEventosMIDs.AUTH_SENHA_ERRO1, uidUsuario, "email", email, "tentativas", String.valueOf(tentativas));
+                // // registroServico.registrarEventoDoUsuario(LogEventosMIDs.AUTH_SENHA_ERRO1, uidUsuario, "email", email, "tentativas", String.valueOf(tentativas));
             } else if (tentativas == 2) {
-                registroServico.registrarEventoDoUsuario(LogEventosMIDs.AUTH_SENHA_ERRO2, uidUsuario, "email", email, "tentativas", String.valueOf(tentativas));
+                // // registroServico.registrarEventoDoUsuario(LogEventosMIDs.AUTH_SENHA_ERRO2, uidUsuario, "email", email, "tentativas", String.valueOf(tentativas));
             } else if (tentativas >= MAX_TENTATIVAS_SENHA) { // Maior ou igual para segurança
-                registroServico.registrarEventoDoUsuario(LogEventosMIDs.AUTH_SENHA_ERRO3, uidUsuario, "email", email, "tentativas", String.valueOf(tentativas));
+                // // registroServico.registrarEventoDoUsuario(LogEventosMIDs.AUTH_SENHA_ERRO3, uidUsuario, "email", email, "tentativas", String.valueOf(tentativas));
                 usuario.bloquearAcessoPorMinutos(MINUTOS_BLOQUEIO_SENHA);
-                registroServico.registrarEventoDoUsuario(LogEventosMIDs.AUTH_ACESSO_BLOQUEADO_ETAPA2, uidUsuario, "email", email, "minutos_bloqueio", String.valueOf(MINUTOS_BLOQUEIO_SENHA));
+                // // registroServico.registrarEventoDoUsuario(LogEventosMIDs.AUTH_ACESSO_BLOQUEADO_ETAPA2, uidUsuario, "email", email, "minutos_bloqueio", String.valueOf(MINUTOS_BLOQUEIO_SENHA));
                 System.err.println("Usuário bloqueado por " + MINUTOS_BLOQUEIO_SENHA + " minutos devido a " + tentativas + " tentativas de senha: " + email);
             } else {
                 // Caso haja mais de 3 tentativas configuradas como MAX, mas ainda não bloqueado (improvável com MAX_TENTATIVAS_SENHA = 3)
@@ -284,7 +284,7 @@ public class UsuarioServico {
             }
             
             atualizar(usuario); 
-            registroServico.registrarEventoDoUsuario(LogEventosMIDs.AUTH_ETAPA2_ENCERRADA, uidUsuario, "email", email, "resultado", "falha_senha");
+            // // registroServico.registrarEventoDoUsuario(LogEventosMIDs.AUTH_ETAPA2_ENCERRADA, uidUsuario, "email", email, "resultado", "falha_senha");
             return Optional.empty();
         }
     }
@@ -323,7 +323,7 @@ public class UsuarioServico {
 
         return null;
     }
-    
+
     public boolean isFirstExecution() {
         try {
             Optional<Grupo> adminGroupOpt = grupoDAO.buscarPorNome("Administrador");
@@ -363,11 +363,11 @@ public class UsuarioServico {
     public boolean isAdminPassphraseValidatedForSession() {
         return this.adminPassphraseSession != null && !this.adminPassphraseSession.isEmpty();
     }
-
+    
     public boolean validarChavePrivadaComFrase(String caminhoChavePrivada, String fraseSecreta, X509Certificate certificate) throws Exception {
         if (StringUtil.isAnyEmpty(caminhoChavePrivada, fraseSecreta) || certificate == null) {
             // Log de parâmetros inválidos, se necessário
-            // registroServico.registrarEventoDoSistema(MID_VALIDACAO_CHAVE_PARAM_INVALIDOS);
+            // // // registroServico.registrarEventoDoSistema(MID_VALIDACAO_CHAVE_PARAM_INVALIDOS);
             return false;
         }
         try {
@@ -406,7 +406,7 @@ public class UsuarioServico {
 
         } catch (Exception e) {
             // Outras exceções durante o carregamento ou validação (ex: GeneralSecurityException de Signature).
-            // registroServico.registrarEventoDoSistema(MID_VALIDACAO_CHAVE_ERRO_GERAL, "path_chave", caminhoChavePrivada, "erro", e.getMessage());
+            // // // registroServico.registrarEventoDoSistema(MID_VALIDACAO_CHAVE_ERRO_GERAL, "path_chave", caminhoChavePrivada, "erro", e.getMessage());
             System.err.println("[UsuarioServico.validarChavePrivadaComFrase] Erro geral na validação: " + e.getMessage());
             throw e; // Relança
         }
@@ -428,7 +428,7 @@ public class UsuarioServico {
             } else {
                  // Log: Frase para setup inicial REJEITADA (vazia)
                  // Idealmente, registrar um MID específico, ex: SETUP_PASSPHRASE_PRIMEIRA_EXEC_REJEITADA
-                 registroServico.registrarEventoDoSistema(LogEventosMIDs.VALIDATE_ADMIN_PASSPHRASE_FALHA_GUI, "motivo", "Primeira execução, frase vazia para setup.");
+                 // // registroServico.registrarEventoDoSistema(LogEventosMIDs.VALIDATE_ADMIN_PASSPHRASE_FALHA_GUI, "motivo", "Primeira execução, frase vazia para setup.");
             }
             return isValid;
         }
@@ -441,7 +441,7 @@ public class UsuarioServico {
 
             if (admins.isEmpty()) {
                 System.err.println("[UsuarioServico] Erro crítico: Não é primeira execução, mas nenhum administrador encontrado para validar frase.");
-                 // registroServico.registrarEventoDoSistema(MID_ERRO_VALIDACAO_PASSPHRASE_ADMIN_NAO_ENCONTRADO);
+                 // // // registroServico.registrarEventoDoSistema(MID_ERRO_VALIDACAO_PASSPHRASE_ADMIN_NAO_ENCONTRADO);
                  //  LogEventosMIDs.VALIDATE_ADMIN_PASSPHRASE_FALHA_GUI (com motivo específico) já será logado pela GUI.
                  return false; 
             }
@@ -450,14 +450,14 @@ public class UsuarioServico {
 
             if (admin.getKid() == null) {
                 System.err.println("[UsuarioServico] Administrador não possui KID associado. Não é possível validar frase secreta.");
-                // registroServico.registrarEventoDoUsuario(MID_ERRO_VALIDACAO_PASSPHRASE_ADMIN_SEM_KID, adminUid);
+                // // // registroServico.registrarEventoDoUsuario(MID_ERRO_VALIDACAO_PASSPHRASE_ADMIN_SEM_KID, adminUid);
                 return false;
             }
 
             Optional<Chaveiro> chaveiroAdminOpt = chaveiroDAO.buscarPorKid(admin.getKid());
             if (chaveiroAdminOpt.isEmpty()) {
                 System.err.println("[UsuarioServico] Dados do chaveiro não encontrados para o KID do administrador: " + admin.getKid());
-                // registroServico.registrarEventoDoUsuario(MID_ERRO_VALIDACAO_PASSPHRASE_CHAVEIRO_NAO_ENCONTRADO, adminUid, "kid", String.valueOf(admin.getKid()));
+                // // // registroServico.registrarEventoDoUsuario(MID_ERRO_VALIDACAO_PASSPHRASE_CHAVEIRO_NAO_ENCONTRADO, adminUid, "kid", String.valueOf(admin.getKid()));
                 return false; 
             }
             Chaveiro chaveiroAdmin = chaveiroAdminOpt.get();
@@ -466,7 +466,7 @@ public class UsuarioServico {
                 // Log: Tentativa de validar frase secreta vazia (não primeira execução)
                 // O painel ValidateAdminPassphrasePanel já faz essa validação e log.
                 // No entanto, podemos logar aqui também para o serviço.
-                registroServico.registrarEventoDoUsuario(LogEventosMIDs.CAD_CHAVE_PRIVADA_FRASE_SECRETA_INVALIDA, adminUid, "motivo", "frase_vazia_ou_nula_no_servico");
+                // // registroServico.registrarEventoDoUsuario(LogEventosMIDs.CAD_CHAVE_PRIVADA_FRASE_SECRETA_INVALIDA, adminUid, "motivo", "frase_vazia_ou_nula_no_servico");
                 return false;
             }
 
@@ -500,7 +500,7 @@ public class UsuarioServico {
                 
                 if (sig.verify(digitalSignature)) {
                     storeAdminPassphraseForSession(candidatePassphrase); 
-                    // registroServico.registrarEventoDoUsuario(MID_VALIDACAO_PASSPHRASE_ADMIN_SUCESSO, adminUid);
+                    // // // registroServico.registrarEventoDoUsuario(MID_VALIDACAO_PASSPHRASE_ADMIN_SUCESSO, adminUid);
                     // Sucesso é logado pela GUI como VALIDATE_ADMIN_PASSPHRASE_SUCESSO_GUI.
                     return true;
                 }
@@ -515,12 +515,12 @@ public class UsuarioServico {
                 // Erro durante o processo de decriptografia/validação (ex: PEM inválido, etc.)
                 // A GUI logará VALIDATE_ADMIN_PASSPHRASE_FALHA_GUI.
                 // Log mais granular no serviço:
-                // registroServico.registrarEventoDoUsuario(MID_ERRO_INTERNO_VALIDACAO_PASSPHRASE, adminUid, "kid", String.valueOf(admin.getKid()), "erro", e.getMessage());
+                // // // registroServico.registrarEventoDoUsuario(MID_ERRO_INTERNO_VALIDACAO_PASSPHRASE, adminUid, "kid", String.valueOf(admin.getKid()), "erro", e.getMessage());
                 System.err.println("[UsuarioServico.validateAdminPassphrase] Exceção durante validação da frase secreta do admin: " + e.getMessage());
                 return false; 
             }
         } catch (SQLException e) {
-            // registroServico.registrarEventoDoSistema(MID_ERRO_BD_VALIDACAO_PASSPHRASE, "erro", e.getMessage());
+            // // // registroServico.registrarEventoDoSistema(MID_ERRO_BD_VALIDACAO_PASSPHRASE, "erro", e.getMessage());
              System.err.println("[UsuarioServico.validateAdminPassphrase] Erro de SQL: " + e.getMessage());
              throw new RuntimeException("Erro de banco de dados ao validar frase do admin.", e); // Relançar para que a aplicação saiba do erro crítico.
         }
@@ -530,7 +530,7 @@ public class UsuarioServico {
                                      String caminhoCertificado, String caminhoChavePrivada, 
                                      String fraseSecretaChave, String senhaPessoal, String grupoNome) throws Exception {
         
-        registroServico.registrarEventoDoSistema(LogEventosMIDs.PARTIDA_SISTEMA_CADASTRO_ADMIN);
+        // // registroServico.registrarEventoDoSistema(LogEventosMIDs.PARTIDA_SISTEMA_CADASTRO_ADMIN);
         System.out.println("[UsuarioServico] Iniciando setup do administrador inicial... (Log MID: " + LogEventosMIDs.PARTIDA_SISTEMA_CADASTRO_ADMIN + ")");
 
         if (!isFirstExecution()) {
@@ -555,13 +555,13 @@ public class UsuarioServico {
             System.out.println("[UsuarioServico] Carregando certificado de: " + caminhoCertificado);
             certificate = CertificateUtil.loadCertificateFromFile(caminhoCertificado);
             if (certificate == null) {
-                registroServico.registrarEventoDoSistema(LogEventosMIDs.CAD_CERTIFICADO_PATH_INVALIDO, "caminho", caminhoCertificado);
+                // // registroServico.registrarEventoDoSistema(LogEventosMIDs.CAD_CERTIFICADO_PATH_INVALIDO, "caminho", caminhoCertificado);
                 throw new RuntimeException("Falha ao carregar o certificado do administrador.");
             }
             publicKey = CertificateUtil.getPublicKeyFromCertificate(certificate);
             privateKey = PrivateKeyUtil.loadEncryptedPKCS8PrivateKey(caminhoChavePrivada, fraseSecretaChave);
             if (privateKey == null) {
-                registroServico.registrarEventoDoSistema(LogEventosMIDs.CAD_CHAVE_PRIVADA_FRASE_SECRETA_INVALIDA, "path_chave", caminhoChavePrivada);
+                // // registroServico.registrarEventoDoSistema(LogEventosMIDs.CAD_CHAVE_PRIVADA_FRASE_SECRETA_INVALIDA, "path_chave", caminhoChavePrivada);
                 System.err.println("[UsuarioServico.setupInitialAdmin] Falha ao carregar/decriptografar chave privada PEM. Verifique o caminho e a frase secreta.");
                 throw new SecurityException("Falha ao carregar ou decriptografar a chave privada PEM. Frase secreta pode estar incorreta ou arquivo corrompido/não encontrado.");
             }
@@ -638,19 +638,19 @@ public class UsuarioServico {
 
     // --- Métodos adicionais para gerenciamento de Chaveiro ---
     public void associarKidAoUsuario(long uid, int kid) throws SQLException {
-        registroServico.registrarEventoDoUsuario(LogEventosMIDs.USUARIO_ASSOCIA_KID_INICIO, uid, "uid", String.valueOf(uid), "kid_a_associar", String.valueOf(kid));
+        // // registroServico.registrarEventoDoUsuario(LogEventosMIDs.USUARIO_ASSOCIA_KID_INICIO, uid, "uid", String.valueOf(uid), "kid_a_associar", String.valueOf(kid));
         
         Usuario usuario;
         try {
             usuario = buscarPorId(uid); // Valida se usuário existe
         } catch (UsuarioNaoEncontradoException e) {
-            registroServico.registrarEventoDoSistema(LogEventosMIDs.USUARIO_ASSOCIA_KID_FALHA_USUARIO_NAO_ENCONTRADO, "uid_nao_encontrado", String.valueOf(uid));
+            // // registroServico.registrarEventoDoSistema(LogEventosMIDs.USUARIO_ASSOCIA_KID_FALHA_USUARIO_NAO_ENCONTRADO, "uid_nao_encontrado", String.valueOf(uid));
             throw e; // Relança a exceção original
         }
         
         Optional<Chaveiro> chaveiroOpt = chaveiroDAO.buscarPorKid(kid);
         if(chaveiroOpt.isEmpty()){
-            registroServico.registrarEventoDoUsuario(LogEventosMIDs.USUARIO_ASSOCIA_KID_FALHA_CHAVEIRO_NAO_ENCONTRADO, uid, "uid", String.valueOf(uid), "kid_nao_encontrado", String.valueOf(kid));
+            // // registroServico.registrarEventoDoUsuario(LogEventosMIDs.USUARIO_ASSOCIA_KID_FALHA_CHAVEIRO_NAO_ENCONTRADO, uid, "uid", String.valueOf(uid), "kid_nao_encontrado", String.valueOf(kid));
             throw new SQLException("Chaveiro com KID " + kid + " não encontrado.");
         }
         // Opcional: verificar se chaveiroOpt.get().getUid() == uid se necessário
@@ -659,35 +659,35 @@ public class UsuarioServico {
         try {
             usuarioDAO.atualizarKidPadrao(uid, kid);
         } catch (SQLException e) {
-            registroServico.registrarEventoDoUsuario(LogEventosMIDs.USUARIO_ASSOCIA_KID_FALHA_BD, uid, "uid", String.valueOf(uid), "kid", String.valueOf(kid), "erro_sql", e.getMessage());
+            // // registroServico.registrarEventoDoUsuario(LogEventosMIDs.USUARIO_ASSOCIA_KID_FALHA_BD, uid, "uid", String.valueOf(uid), "kid", String.valueOf(kid), "erro_sql", e.getMessage());
             throw e; // Relança para a camada superior
         }
         
-        registroServico.registrarEventoDoUsuario(LogEventosMIDs.USUARIO_ASSOCIA_KID_SUCESSO, uid, "uid", String.valueOf(uid), "kid_associado", String.valueOf(kid));
+        // // registroServico.registrarEventoDoUsuario(LogEventosMIDs.USUARIO_ASSOCIA_KID_SUCESSO, uid, "uid", String.valueOf(uid), "kid_associado", String.valueOf(kid));
         System.out.println("[UsuarioServico] KID " + kid + " associado ao usuário UID " + uid + " como KID padrão.");
     }
 
     public Chaveiro salvarChaveiro(long uid, String certificadoPem, byte[] chavePrivadaCriptografada, String senhaMestreDoCertificado) throws Exception {
-        registroServico.registrarEventoDoUsuario(LogEventosMIDs.CHAVEIRO_SALVAR_INICIO, uid, "uid", String.valueOf(uid));
+        // // registroServico.registrarEventoDoUsuario(LogEventosMIDs.CHAVEIRO_SALVAR_INICIO, uid, "uid", String.valueOf(uid));
         Usuario usuario = buscarPorId(uid); // Valida se usuário existe e para obter email para logs
 
         try {
             PrivateKey privateKey = PrivateKeyUtil.loadEncryptedPKCS8PrivateKeyFromBytes(chavePrivadaCriptografada, senhaMestreDoCertificado);
             if (privateKey == null) { // Checagem explícita de falha na decriptografia
-                registroServico.registrarEventoDoUsuario(LogEventosMIDs.CAD_CHAVE_PRIVADA_FRASE_SECRETA_INVALIDA, uid, "uid", String.valueOf(uid), "contexto", "salvarChaveiro");
+                // // registroServico.registrarEventoDoUsuario(LogEventosMIDs.CAD_CHAVE_PRIVADA_FRASE_SECRETA_INVALIDA, uid, "uid", String.valueOf(uid), "contexto", "salvarChaveiro");
                 throw new IllegalArgumentException("Senha mestre inválida. Não foi possível decriptografar a chave privada fornecida.");
             }
             X509Certificate certificate = CertificateUtil.loadCertificateFromPEMString(certificadoPem);
             PublicKey publicKey = certificate.getPublicKey();
 
             if (!PrivateKeyUtil.validatePrivateKeyWithPublicKey(privateKey, publicKey)) {
-                registroServico.registrarEventoDoUsuario(LogEventosMIDs.CAD_CHAVE_PRIVADA_ASSINATURA_INVALIDA, uid, "uid", String.valueOf(uid), "contexto", "salvarChaveiro");
+                // // registroServico.registrarEventoDoUsuario(LogEventosMIDs.CAD_CHAVE_PRIVADA_ASSINATURA_INVALIDA, uid, "uid", String.valueOf(uid), "contexto", "salvarChaveiro");
                 throw new IllegalArgumentException("A chave privada fornecida (usando a senha mestre) não corresponde ao certificado público.");
             }
         } catch (IllegalArgumentException e) { // Captura as exceções de validação lançadas acima
             throw e; // Relança para a camada superior, os logs específicos já foram feitos.
         } catch (Exception e) { // Outras exceções durante a validação (ex: formato PEM inválido)
-            registroServico.registrarEventoDoUsuario(LogEventosMIDs.CAD_CHAVE_PRIVADA_FRASE_SECRETA_INVALIDA, uid, "uid", String.valueOf(uid), "contexto", "salvarChaveiro_validacao", "erro", e.getMessage());
+            // // registroServico.registrarEventoDoUsuario(LogEventosMIDs.CAD_CHAVE_PRIVADA_FRASE_SECRETA_INVALIDA, uid, "uid", String.valueOf(uid), "contexto", "salvarChaveiro_validacao", "erro", e.getMessage());
             throw new IllegalArgumentException("Senha mestre inválida ou par chave/certificado incompatível. Detalhe: " + e.getMessage(), e);
         }
         
@@ -696,16 +696,16 @@ public class UsuarioServico {
         try {
             chaveiroSalvo = chaveiroDAO.salvar(novoChaveiro);
         } catch (SQLException e) {
-            registroServico.registrarEventoDoUsuario(LogEventosMIDs.CHAVEIRO_SALVAR_FALHA_BD, uid, "uid", String.valueOf(uid), "erro", e.getMessage());
+            // // registroServico.registrarEventoDoUsuario(LogEventosMIDs.CHAVEIRO_SALVAR_FALHA_BD, uid, "uid", String.valueOf(uid), "erro", e.getMessage());
             throw e; // Relança para a camada superior
         }
         
-        registroServico.registrarEventoDoUsuario(LogEventosMIDs.CHAVEIRO_SALVAR_SUCESSO, uid, "uid", String.valueOf(uid), "kid", String.valueOf(chaveiroSalvo.getKid()));
+        // // registroServico.registrarEventoDoUsuario(LogEventosMIDs.CHAVEIRO_SALVAR_SUCESSO, uid, "uid", String.valueOf(uid), "kid", String.valueOf(chaveiroSalvo.getKid()));
         System.out.println("[UsuarioServico] Novo chaveiro salvo com KID: " + chaveiroSalvo.getKid() + " para UID: " + uid);
 
         if (usuario.getKid() == null) { 
             usuarioDAO.atualizarKidPadrao(uid, chaveiroSalvo.getKid());
-            registroServico.registrarEventoDoUsuario(LogEventosMIDs.CHAVEIRO_DEFINIDO_COMO_PADRAO, uid, "uid", String.valueOf(uid), "kid", String.valueOf(chaveiroSalvo.getKid()));
+            // // registroServico.registrarEventoDoUsuario(LogEventosMIDs.CHAVEIRO_DEFINIDO_COMO_PADRAO, uid, "uid", String.valueOf(uid), "kid", String.valueOf(chaveiroSalvo.getKid()));
             System.out.println("[UsuarioServico] Novo chaveiro KID " + chaveiroSalvo.getKid() + " definido como padrão para UID: " + uid);
         }
         return chaveiroSalvo;
@@ -726,15 +726,15 @@ public class UsuarioServico {
         
         // Validação dos caminhos do certificado e chave, e frase secreta
         if (StringUtil.isAnyEmpty(caminhoCertificado, caminhoChavePrivada, fraseSecretaChave)) {
-            registroServico.registrarEventoDoSistema(LogEventosMIDs.CAD_USUARIO_DADOS_INVALIDOS,
-                "motivo", "Certificado, chave privada e frase secreta são obrigatórios para este tipo de cadastro.",
-                "adminUid", String.valueOf(adminUid));
+            // // registroServico.registrarEventoDoSistema(LogEventosMIDs.CAD_USUARIO_DADOS_INVALIDOS,
+            // //     "motivo", "Certificado, chave privada e frase secreta são obrigatórios para este tipo de cadastro.",
+            // //     "adminUid", String.valueOf(adminUid));
             throw new IllegalArgumentException("Caminho do certificado, caminho da chave privada e frase secreta são obrigatórios.");
         }
 
         if (StringUtil.isAnyEmpty(senha) || gid <= 0) {
-            registroServico.registrarEventoDoSistema(LogEventosMIDs.CAD_USUARIO_DADOS_INVALIDOS,
-                "motivo", "Senha e GID válidos são obrigatórios.", "adminUid", String.valueOf(adminUid));
+            // // registroServico.registrarEventoDoSistema(LogEventosMIDs.CAD_USUARIO_DADOS_INVALIDOS,
+            // //     "motivo", "Senha e GID válidos são obrigatórios.", "adminUid", String.valueOf(adminUid));
             throw new IllegalArgumentException("Senha e GID válidos são obrigatórios.");
         }
 
@@ -750,7 +750,7 @@ public class UsuarioServico {
             System.out.println("[UsuarioServico.cadastrarNovoUsuario] Processando certificado fornecido: " + caminhoCertificado);
             certificate = CertificateUtil.loadCertificateFromFile(caminhoCertificado);
             if (certificate == null) {
-                registroServico.registrarEventoDoSistema(LogEventosMIDs.CAD_CERTIFICADO_PATH_INVALIDO, "adminUid", String.valueOf(adminUid), "caminho", caminhoCertificado);
+                // // registroServico.registrarEventoDoSistema(LogEventosMIDs.CAD_CERTIFICADO_PATH_INVALIDO, "adminUid", String.valueOf(adminUid), "caminho", caminhoCertificado);
                 throw new IllegalArgumentException("Falha ao carregar o certificado do arquivo: " + caminhoCertificado);
             }
 
@@ -758,7 +758,7 @@ public class UsuarioServico {
             emailExtraidoCert = CertificateUtil.extractEmailFromCertificate(certificate);
 
             if (StringUtil.isAnyEmpty(emailExtraidoCert)) {
-                registroServico.registrarEventoDoSistema(LogEventosMIDs.CAD_USUARIO_DADOS_INVALIDOS, "adminUid", String.valueOf(adminUid), "motivo", "Email não pôde ser extraído do certificado.");
+                // // registroServico.registrarEventoDoSistema(LogEventosMIDs.CAD_USUARIO_DADOS_INVALIDOS, "adminUid", String.valueOf(adminUid), "motivo", "Email não pôde ser extraído do certificado.");
                 throw new IllegalArgumentException("Não foi possível extrair o e-mail do certificado fornecido.");
             }
             if (StringUtil.isAnyEmpty(nomeExtraidoCert)) {
@@ -767,27 +767,27 @@ public class UsuarioServico {
             certificadoPemString = CertificateUtil.convertToPem(certificate);
 
         } catch (CertificateException | IOException e) {
-            registroServico.registrarEventoDoSistema(LogEventosMIDs.CAD_CERTIFICADO_PATH_INVALIDO, "adminUid", String.valueOf(adminUid), "caminho", caminhoCertificado, "erro", e.getMessage());
+            // // registroServico.registrarEventoDoSistema(LogEventosMIDs.CAD_CERTIFICADO_PATH_INVALIDO, "adminUid", String.valueOf(adminUid), "caminho", caminhoCertificado, "erro", e.getMessage());
             throw new Exception("Erro ao processar arquivo de certificado: " + e.getMessage(), e);
         } catch (IllegalArgumentException iae) { // Captura as exceções de validação de nome/email do cert
             throw iae; 
         } catch (Exception e) { // Outras exceções genéricas ao processar certificado
-             registroServico.registrarEventoDoSistema(LogEventosMIDs.CAD_CERTIFICADO_PATH_INVALIDO, "adminUid", String.valueOf(adminUid), "caminho", caminhoCertificado, "erro_inesperado", e.getMessage());
+             // // registroServico.registrarEventoDoSistema(LogEventosMIDs.CAD_CERTIFICADO_PATH_INVALIDO, "adminUid", String.valueOf(adminUid), "caminho", caminhoCertificado, "erro_inesperado", e.getMessage());
             throw new Exception("Erro inesperado ao processar certificado: " + e.getMessage(), e);
         }
         
         // Agora que temos emailExtraidoCert, podemos logar corretamente e verificar existência
-        registroServico.registrarEventoDoSistema(LogEventosMIDs.CAD_USUARIO_INICIO_FLUXO, "email_novo_usuario", emailExtraidoCert, "adminUid", String.valueOf(adminUid));
+        // // registroServico.registrarEventoDoSistema(LogEventosMIDs.CAD_USUARIO_INICIO_FLUXO, "email_novo_usuario", emailExtraidoCert, "adminUid", String.valueOf(adminUid));
         System.out.println("[UsuarioServico] Iniciando cadastro de novo usuário (email do cert): " + emailExtraidoCert + " por admin: " + adminUid + " (Log MID: " + LogEventosMIDs.CAD_USUARIO_INICIO_FLUXO + ")");
 
         if (usuarioDAO.emailExiste(emailExtraidoCert)) {
-            registroServico.registrarEventoDoSistema(LogEventosMIDs.CAD_EMAIL_JA_EXISTE_NOVO_USUARIO, "email", emailExtraidoCert);
+            // // registroServico.registrarEventoDoSistema(LogEventosMIDs.CAD_EMAIL_JA_EXISTE_NOVO_USUARIO, "email", emailExtraidoCert);
             throw new IllegalArgumentException("Email extraído do certificado ('" + emailExtraidoCert + "') já cadastrado.");
         }
 
         Grupo grupo = grupoDAO.buscarPorId(gid)
                 .orElseThrow(() -> {
-                    registroServico.registrarEventoDoSistema(LogEventosMIDs.CAD_GRUPO_NAO_ENCONTRADO_NOVO_USUARIO, "gid", String.valueOf(gid));
+                    // // registroServico.registrarEventoDoSistema(LogEventosMIDs.CAD_GRUPO_NAO_ENCONTRADO_NOVO_USUARIO, "gid", String.valueOf(gid));
                     return new IllegalArgumentException("Grupo com GID " + gid + " não encontrado.");
                 });
 
@@ -797,7 +797,7 @@ public class UsuarioServico {
             // System.out.println("[UsuarioServico] Processando chave privada: " + caminhoChavePrivada); // Log redundante, já temos o caminho
             // Validar e carregar chave privada
             if (!validarChavePrivadaComFrase(caminhoChavePrivada, fraseSecretaChave, certificate)) {
-                 registroServico.registrarEventoDoSistema(LogEventosMIDs.CAD_CHAVE_PRIVADA_ASSINATURA_INVALIDA, "email", emailExtraidoCert, "path_chave", caminhoChavePrivada);
+                 // // registroServico.registrarEventoDoSistema(LogEventosMIDs.CAD_CHAVE_PRIVADA_ASSINATURA_INVALIDA, "email", emailExtraidoCert, "path_chave", caminhoChavePrivada);
                  throw new SecurityException("A chave privada fornecida não pôde ser validada com o certificado ou a frase secreta está incorreta.");
             }
             // Se chegou aqui, a chave é válida com a frase e corresponde ao certificado.
@@ -820,7 +820,7 @@ public class UsuarioServico {
         } catch (SecurityException se) {
             throw se; // Relança exceções de segurança já logadas ou específicas
         } catch (Exception e) {
-            registroServico.registrarEventoDoSistema(LogEventosMIDs.CAD_CHAVE_PRIVADA_PATH_INVALIDO, "email", emailExtraidoCert, "path_chave", caminhoChavePrivada, "erro_proc_chave", e.getMessage());
+            // // registroServico.registrarEventoDoSistema(LogEventosMIDs.CAD_CHAVE_PRIVADA_PATH_INVALIDO, "email", emailExtraidoCert, "path_chave", caminhoChavePrivada, "erro_proc_chave", e.getMessage());
             throw new Exception("Erro ao processar ou validar a chave privada: " + e.getMessage(), e);
         }
         
@@ -856,16 +856,16 @@ public class UsuarioServico {
         } else {
             // Isso não deveria acontecer se as validações de cert/chave obrigatórios estiverem corretas no início
             System.err.println("[UsuarioServico.cadastrarNovoUsuario] Alerta: Certificado PEM ou chave privada criptografada não disponíveis para salvar chaveiro para " + emailExtraidoCert);
-            registroServico.registrarEventoDoSistema(LogEventosMIDs.CAD_USUARIO_DADOS_INVALIDOS, "email", emailExtraidoCert, "motivo", "dados_chaveiro_ausentes_inesperadamente");
+            // // registroServico.registrarEventoDoSistema(LogEventosMIDs.CAD_USUARIO_DADOS_INVALIDOS, "email", emailExtraidoCert, "motivo", "dados_chaveiro_ausentes_inesperadamente");
         }
         
-        registroServico.registrarEventoDoSistema(LogEventosMIDs.CAD_USUARIO_SUCESSO, 
-            "uidNovoUsuario", String.valueOf(usuarioSalvo.getId()), 
-            "emailNovoUsuario", usuarioSalvo.getEmail(),
-            "gidNovoUsuario", String.valueOf(gid),
-            "kidPadrao", kidSalvo != null ? String.valueOf(kidSalvo) : "N/A",
-            "adminUid", String.valueOf(adminUid)
-        );
+        // // registroServico.registrarEventoDoSistema(LogEventosMIDs.CAD_USUARIO_SUCESSO, 
+        // //     "uidNovoUsuario", String.valueOf(usuarioSalvo.getId()), 
+        // //     "emailNovoUsuario", usuarioSalvo.getEmail(),
+        // //     "gidNovoUsuario", String.valueOf(gid),
+        // //     "kidPadrao", kidSalvo != null ? String.valueOf(kidSalvo) : "N/A",
+        // //     "adminUid", String.valueOf(adminUid)
+        // // );
         System.out.println("[UsuarioServico] Usuário " + usuarioSalvo.getEmail() + " cadastrado com sucesso. UID: " + usuarioSalvo.getId() + ". Chave TOTP (plana - para debug): " + chaveSecretaTotpBase32);
         return usuarioSalvo;
     }

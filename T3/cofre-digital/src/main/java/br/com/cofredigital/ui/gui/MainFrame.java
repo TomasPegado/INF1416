@@ -40,6 +40,8 @@ public class MainFrame extends JFrame {
     public static final String VALIDATE_ADMIN_PASSPHRASE_PANEL = "ValidateAdminPassphrasePanel";
     public static final String ADMIN_MAIN_PANEL = "AdminMainPanel"; // Nova constante
     public static final String USER_REGISTRATION_ADMIN_PANEL = "UserRegistrationAdminPanel"; // Nova constante
+    public static final String USER_MAIN_PANEL = "UserMainPanel"; // Adicionada
+    public static final String LOGOUT_EXIT_PANEL = "LogoutExitPanel"; // Adicionada
     // Adicionar outras constantes conforme necessário (ex: VALIDATE_ADMIN_PASSPHRASE_PANEL)
 
     // Estado temporário para integração do fluxo
@@ -52,6 +54,8 @@ public class MainFrame extends JFrame {
     private ValidateAdminPassphrasePanel validateAdminPassphrasePanel;
     private AdminMainPanel adminMainPanel; // Novo painel
     private UserRegistrationAdminPanel userRegistrationAdminPanel; // Novo painel de cadastro pelo admin
+    private UserMainPanel userMainPanel; // Adicionado
+    private LogoutExitPanel logoutExitPanel; // Adicionado
 
     public MainFrame(UsuarioServico usuarioServico, TotpServico totpServico, RegistroServico registroServico) {
         this.usuarioServico = usuarioServico;
@@ -59,7 +63,7 @@ public class MainFrame extends JFrame {
         this.registroServico = registroServico;
 
         setTitle("Cofre Digital");
-        setSize(500, 400);
+        setSize(600, 500); // Ajuste de tamanho para melhor visualização
         setLocationRelativeTo(null);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 
@@ -213,6 +217,12 @@ public class MainFrame extends JFrame {
         userRegistrationAdminPanel = new UserRegistrationAdminPanel(this, usuarioServico); // Instanciação
         userRegistrationAdminPanel.setName(USER_REGISTRATION_ADMIN_PANEL);
 
+        userMainPanel = new UserMainPanel(this); // Instanciação
+        userMainPanel.setName(USER_MAIN_PANEL);
+
+        logoutExitPanel = new LogoutExitPanel(this); // Instanciação
+        logoutExitPanel.setName(LOGOUT_EXIT_PANEL);
+
         mainPanel.add(loginPanel, LOGIN_PANEL);
         mainPanel.add(cadastroPanel, CADASTRO_PANEL);
         mainPanel.add(qrCodePanel, TOTP_QRCODE_PANEL);
@@ -221,6 +231,8 @@ public class MainFrame extends JFrame {
         mainPanel.add(validateAdminPassphrasePanel, VALIDATE_ADMIN_PASSPHRASE_PANEL);
         mainPanel.add(adminMainPanel, ADMIN_MAIN_PANEL); // Adicionar ao CardLayout
         mainPanel.add(userRegistrationAdminPanel, USER_REGISTRATION_ADMIN_PANEL); // Adicionar ao CardLayout
+        mainPanel.add(userMainPanel, USER_MAIN_PANEL); // Adicionar ao CardLayout
+        mainPanel.add(logoutExitPanel, LOGOUT_EXIT_PANEL); // Adicionar ao CardLayout
 
         add(mainPanel);
     }
@@ -271,6 +283,10 @@ public class MainFrame extends JFrame {
             } else if (ADMIN_MAIN_PANEL.equals(panelName)) {
                 // Log já no construtor do painel
             } else if (USER_REGISTRATION_ADMIN_PANEL.equals(panelName)) {
+                // Log já no construtor do painel
+            } else if (USER_MAIN_PANEL.equals(panelName)) {
+                // Log já no construtor do painel
+            } else if (LOGOUT_EXIT_PANEL.equals(panelName)) {
                 // Log já no construtor do painel
             }
             // Adicionar logs para outras telas conforme são implementadas (ex: TELA_PRINCIPAL_APRESENTADA)
@@ -413,6 +429,46 @@ public class MainFrame extends JFrame {
             JOptionPane.showMessageDialog(this,
                 "Erro: Painel de Cadastro de Usuário (Admin) não está pronto.",
                 "Erro de Interface", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    public Usuario getUsuarioLogado() {
+        return usuarioEmLogin;
+    }
+
+    // Adicionado para consistência, embora logout() já limpe
+    public void setUsuarioLogado(Usuario usuario) {
+        this.usuarioEmLogin = usuario;
+    }
+
+    // Método para exibir o painel de Logout/Exit
+    public void showLogoutExitPanel(Usuario usuario) {
+        if (logoutExitPanel != null) {
+            setUsuarioLogado(usuario); // Garante que o usuário está setado para o painel de saída
+            logoutExitPanel.prepareForm(usuario);
+            showScreen(LOGOUT_EXIT_PANEL);
+        } else {
+            JOptionPane.showMessageDialog(this, "Erro: Painel de Saída não está pronto.", "Erro de Interface", JOptionPane.ERROR_MESSAGE);
+            // Fallback, talvez ir para o login se o painel de saída falhar
+            if (usuario != null && "Administrador".equals(usuario.getGrupo())) {
+                 showScreen(ADMIN_MAIN_PANEL);
+            } else if (usuario != null) {
+                 showScreen(USER_MAIN_PANEL);
+            } else {
+                showScreen(LOGIN_PANEL);
+            }
+        }
+    }
+    
+    public void showTotpValidationPanel(String email, String senhaPessoalOriginal) {
+        TotpValidationPanel tvp = (TotpValidationPanel) getPanelByName(TOTP_VALIDATION_PANEL);
+        if (tvp != null) {
+            // tvp.preparePanel(email, senhaPessoalOriginal); // Linha removida - causa do erro
+            // O email para log é setado em showScreen.
+            // A senhaPessoalOriginal (this.senhaEmLogin) já está disponível no MainFrame para uso em onTotpValidated.
+            showScreen(TOTP_VALIDATION_PANEL);
+        } else {
+            JOptionPane.showMessageDialog(this, "Erro ao carregar tela de validação TOTP.", "Erro", JOptionPane.ERROR_MESSAGE);
         }
     }
 } 

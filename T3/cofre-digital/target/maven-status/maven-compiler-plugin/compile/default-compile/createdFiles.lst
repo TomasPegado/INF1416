@@ -34,7 +34,6 @@ br\com\cofredigital\ui\gui\CertificateConfirmationDialog$1.class
 br\com\cofredigital\persistencia\dao\ChaveiroDAO.class
 br\com\cofredigital\persistencia\DatabaseManager.class
 br\com\cofredigital\ui\gui\MainFrame$4.class
-br\com\cofredigital\CofreDigitalApp$1.class
 br\com\cofredigital\util\Base32.class
 br\com\cofredigital\util\exception\EmailJaExisteException.class
 br\com\cofredigital\persistencia\dao\RegistroDAOImpl.class
@@ -52,7 +51,9 @@ br\com\cofredigital\tecladovirtual\TecladoVirtualAuthInput.class
 br\com\cofredigital\ui\gui\UserRegistrationAdminPanel$1.class
 br\com\cofredigital\persistencia\dao\MensagemDAOImpl.class
 br\com\cofredigital\tecladovirtual\TecladoVirtualLogic.class
+br\com\cofredigital\ui\gui\LogoutExitPanel.class
 br\com\cofredigital\ui\gui\ValidateAdminPassphrasePanel.class
 br\com\cofredigital\persistencia\modelo\Grupo.class
 br\com\cofredigital\ui\gui\MainFrame$2.class
 br\com\cofredigital\util\StringUtil.class
+br\com\cofredigital\ui\gui\UserMainPanel.class

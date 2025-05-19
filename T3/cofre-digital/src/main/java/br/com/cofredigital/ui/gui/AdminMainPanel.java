@@ -92,7 +92,12 @@ public class AdminMainPanel extends JPanel {
             @Override
             public void actionPerformed(ActionEvent e) {
                 // Ação para Sair
-                mainFrame.logout(); // Assume que MainFrame tem um método logout()
+                if (adminLogado != null) {
+                    mainFrame.showLogoutExitPanel(adminLogado);
+                } else {
+                    // Fallback, embora o admin deva estar logado para ver este painel
+                    mainFrame.showScreen(MainFrame.LOGIN_PANEL);
+                }
             }
         });
 

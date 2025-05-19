@@ -1,26 +1,24 @@
 package br.com.cofredigital;
 
+import javax.swing.SwingUtilities;
 import br.com.cofredigital.autenticacao.servico.TotpServico;
 import br.com.cofredigital.autenticacao.servico.UsuarioServico;
-import br.com.cofredigital.log.LogEventosMIDs;
 import br.com.cofredigital.log.servico.RegistroServico;
 import br.com.cofredigital.ui.gui.MainFrame;
-import javax.swing.SwingUtilities;
 import br.com.cofredigital.persistencia.DatabaseManager;
-import java.util.Map;
 
 public class CofreDigitalApp {
+    
+    private static RegistroServico registroServico;
+    private static UsuarioServico usuarioServico;
+    private static TotpServico totpServico;
 
     public static void main(String[] args) {
-        RegistroServico registroServico = null;
-
+        
+        System.out.println("Iniciando aplicação...");
         try {
             Class.forName("org.sqlite.JDBC");
             DatabaseManager.inicializarBanco();
-            
-            registroServico = new RegistroServico();
-            registroServico.registrarEventoDoSistema(LogEventosMIDs.SISTEMA_INICIADO, (Map<String, String>) null);
-
         } catch (ClassNotFoundException e) {
             System.err.println("Driver SQLite JDBC não encontrado. Verifique as dependências do Maven.");
             e.printStackTrace();
@@ -30,29 +28,19 @@ public class CofreDigitalApp {
             e.printStackTrace();
             return; 
         }
+        System.out.println("Banco de dados inicializado.");
 
-        final RegistroServico servicoLogFinal = registroServico; 
-        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-            if (servicoLogFinal != null) {
-                System.out.println("Registrando encerramento do sistema...");
-                servicoLogFinal.registrarEventoDoSistema(LogEventosMIDs.SISTEMA_ENCERRADO, (Map<String, String>) null);
-            } else {
-                System.err.println("Shutdown hook: RegistroServico não inicializado, não foi possível logar encerramento.");
-            }
-        }));
+        registroServico = new RegistroServico(); 
+        totpServico = new TotpServico();
+        usuarioServico = new UsuarioServico(totpServico, registroServico);
 
-        TotpServico totpServico = new TotpServico();
-        UsuarioServico usuarioServico = new UsuarioServico(totpServico, registroServico);
+        // // registroServico.registrarEventoDoSistema(br.com.cofredigital.log.LogEventosMIDs.PARTIDA_SISTEMA, null);
+        System.out.println("Serviços de log, TOTP e usuário inicializados.");
 
-        final RegistroServico rsParaUI = registroServico;
-        SwingUtilities.invokeLater(new Runnable() {
-            public void run() {
-                MainFrame mainFrame = new MainFrame(usuarioServico, totpServico, rsParaUI);
-                mainFrame.setVisible(true);
-            }
+        SwingUtilities.invokeLater(() -> {
+            MainFrame mainFrame = new MainFrame(usuarioServico, totpServico, registroServico);
+            mainFrame.setVisible(true);
+            System.out.println("Interface gráfica (MainFrame) iniciada e visível.");
         });
     }
-
-    // TODO Futuro: Mover a inicialização dos serviços para um local mais apropriado
-    //              (talvez injeção de dependência se o projeto crescer).
 } 
