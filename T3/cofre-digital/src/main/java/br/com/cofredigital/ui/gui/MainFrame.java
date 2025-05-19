@@ -12,6 +12,11 @@ import br.com.cofredigital.log.LogEventosMIDs;
 import br.com.cofredigital.ui.gui.SetupAdminPanel;
 import br.com.cofredigital.ui.gui.ValidateAdminPassphrasePanel;
 import br.com.cofredigital.util.StringUtil;
+import br.com.cofredigital.persistencia.modelo.Chaveiro;
+import br.com.cofredigital.crypto.CertificateUtil;
+import br.com.cofredigital.crypto.PrivateKeyUtil;
+import java.security.PrivateKey;
+import java.security.cert.X509Certificate;
 
 import javax.swing.JFrame;
 import javax.swing.JPanel;
@@ -500,5 +505,44 @@ public class MainFrame extends JFrame {
         consultarArquivosSecretosPanel.setUsuarioLogado(usuario, totalConsultas);
         consultarArquivosSecretosPanel.limparTabela();
         showScreen(CONSULTAR_ARQUIVOS_SECRETOS_PANEL);
+    }
+
+    // Novo método para exibir o painel de consulta de arquivos secretos para o admin
+    public void showConsultarArquivosSecretosPanel() {
+        try {
+            if (usuarioEmLogin == null || !"Administrador".equalsIgnoreCase(usuarioEmLogin.getGrupo())) {
+                JOptionPane.showMessageDialog(this, "Apenas administradores podem acessar esta funcionalidade.", "Acesso negado", JOptionPane.ERROR_MESSAGE);
+                return;
+            }
+            // Recupera o KID do admin
+            Integer kid = usuarioEmLogin.getKid();
+            if (kid == null) {
+                JOptionPane.showMessageDialog(this, "Admin não possui chaveiro associado.", "Erro", JOptionPane.ERROR_MESSAGE);
+                return;
+            }
+            // Busca o chaveiro
+            Chaveiro chaveiro = usuarioServico.buscarChaveiroPorKid(kid).orElseThrow(() -> new Exception("Chaveiro não encontrado para o admin."));
+            // Carrega o certificado
+            X509Certificate certificadoAdmin = CertificateUtil.loadCertificateFromPEMString(chaveiro.getCertificadoPem());
+            // Decripta a chave privada usando a frase secreta do admin
+            String fraseSecretaAdmin = usuarioServico.getAdminPassphraseForSession();
+            if (fraseSecretaAdmin == null || fraseSecretaAdmin.isEmpty()) {
+                JOptionPane.showMessageDialog(this, "Frase secreta do admin não está disponível na sessão. Faça a validação novamente.", "Erro", JOptionPane.ERROR_MESSAGE);
+                return;
+            }
+            PrivateKey chavePrivadaAdmin = PrivateKeyUtil.loadEncryptedPKCS8PrivateKeyFromDERBytes(
+                chaveiro.getChavePrivadaCriptografada(), fraseSecretaAdmin
+            );
+            // Injeta as chaves no painel
+            consultarArquivosSecretosPanel.setAdminKeys(chavePrivadaAdmin, certificadoAdmin.getPublicKey());
+            // Injeta o serviço de usuário e o usuário logado
+            consultarArquivosSecretosPanel.setUsuarioServico(usuarioServico);
+            consultarArquivosSecretosPanel.setUsuarioLogado(usuarioEmLogin, usuarioEmLogin.getTotalAcessos());
+            // Exibe o painel
+            showScreen(CONSULTAR_ARQUIVOS_SECRETOS_PANEL);
+        } catch (Exception ex) {
+            JOptionPane.showMessageDialog(this, "Erro ao preparar painel de consulta de arquivos secretos: " + ex.getMessage(), "Erro", JOptionPane.ERROR_MESSAGE);
+            ex.printStackTrace();
+        }
     }
 } 

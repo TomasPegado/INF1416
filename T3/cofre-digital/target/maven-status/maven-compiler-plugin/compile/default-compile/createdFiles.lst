@@ -37,6 +37,7 @@ br\com\cofredigital\ui\gui\ConsultarArquivosSecretosPanel.class
 br\com\cofredigital\persistencia\dao\ChaveiroDAO.class
 br\com\cofredigital\persistencia\DatabaseManager.class
 br\com\cofredigital\ui\gui\MainFrame$4.class
+br\com\cofredigital\util\ArquivoProtegidoUtil.class
 br\com\cofredigital\util\Base32.class
 br\com\cofredigital\util\exception\EmailJaExisteException.class
 br\com\cofredigital\persistencia\dao\RegistroDAOImpl.class

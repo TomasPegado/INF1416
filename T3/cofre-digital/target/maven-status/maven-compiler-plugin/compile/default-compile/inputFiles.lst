@@ -41,6 +41,7 @@ C:\Users\Gabi\git-si\INF1416\T3\cofre-digital\src\main\java\br\com\cofredigital\
 C:\Users\Gabi\git-si\INF1416\T3\cofre-digital\src\main\java\br\com\cofredigital\ui\gui\UserMainPanel.java
 C:\Users\Gabi\git-si\INF1416\T3\cofre-digital\src\main\java\br\com\cofredigital\ui\gui\UserRegistrationAdminPanel.java
 C:\Users\Gabi\git-si\INF1416\T3\cofre-digital\src\main\java\br\com\cofredigital\ui\gui\ValidateAdminPassphrasePanel.java
+C:\Users\Gabi\git-si\INF1416\T3\cofre-digital\src\main\java\br\com\cofredigital\util\ArquivoProtegidoUtil.java
 C:\Users\Gabi\git-si\INF1416\T3\cofre-digital\src\main\java\br\com\cofredigital\util\Base32.java
 C:\Users\Gabi\git-si\INF1416\T3\cofre-digital\src\main\java\br\com\cofredigital\util\exception\EmailJaExisteException.java
 C:\Users\Gabi\git-si\INF1416\T3\cofre-digital\src\main\java\br\com\cofredigital\util\exception\UsuarioNaoEncontradoException.java
