@@ -290,35 +290,12 @@ public class SetupAdminPanel extends JPanel {
 
             if (confirm == JOptionPane.YES_OPTION) {
                 registroServico.registrarEventoDoSistema(LogEventosMIDs.SETUP_ADMIN_CONFIRMACAO_CERTIFICADO_ACEITA_GUI);
-                try {
-                    // Usar caminhoCertParaServico aqui
-                    usuarioServico.setupInitialAdmin(
-                        null, // nomeInputIgnorado - será extraído do certificado
-                        null, // emailInputIgnorado - será extraído do certificado
-                        caminhoCertParaServico, // <--- Caminho do certificado PEM limpo
-                        caminhoChave,
-                        fraseSecreta,
-                        senha,
-                        "Administrador"
-                    );
-                    registroServico.registrarEventoDoSistema(LogEventosMIDs.SETUP_ADMIN_SUCESSO_GUI, "emailAdmin", (emailCert != null ? emailCert : "N/A"));
-                    JOptionPane.showMessageDialog(this,
-                        "Administrador configurado com sucesso! O e-mail do administrador é: " +
-                        (emailCert != null ? emailCert : "Verifique os logs para o e-mail.") +
-                        "\nO sistema será reiniciado ou irá para a tela de login.", // Ajustar conforme o fluxo desejado
-                        "Configuração Concluída", JOptionPane.INFORMATION_MESSAGE);
-
-                    mainFrame.onAdminSetupComplete(); // Callback para MainFrame
-
-                } catch (Exception exSetup) {
-                    registroServico.registrarEventoDoSistema(LogEventosMIDs.SETUP_ADMIN_FALHA_GERAL_GUI, "erro", exSetup.getMessage());
-                    exSetup.printStackTrace(); // Para debug no console
-                    String mensagemErro = "Falha ao configurar o administrador: " + exSetup.getMessage();
-                    if (exSetup.getCause() != null) {
-                        mensagemErro += "\nCausa: " + exSetup.getCause().getMessage();
-                    }
-                    JOptionPane.showMessageDialog(this, mensagemErro, "Erro na Configuração", JOptionPane.ERROR_MESSAGE);
-                }
+                // Delegar TODA a lógica de submissão, criação do admin, feedback e navegação para o MainFrame.
+                // O MainFrame.onSetupAdminSubmit já faz isso.
+                mainFrame.onSetupAdminSubmit(caminhoCertParaServico, // Usa o caminho do cert PEM limpo
+                                            caminhoChave,
+                                            fraseSecreta,
+                                            senha);
             } else {
                 registroServico.registrarEventoDoSistema(LogEventosMIDs.SETUP_ADMIN_CONFIRMACAO_CERTIFICADO_REJEITADA_GUI);
             }

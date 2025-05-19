@@ -20,6 +20,7 @@ import javax.swing.JOptionPane;
 import java.awt.CardLayout;
 import java.awt.Component;
 import java.awt.image.BufferedImage;
+import java.util.Map;
 
 public class MainFrame extends JFrame {
 
@@ -308,13 +309,12 @@ public class MainFrame extends JFrame {
 
             if (adminCriado != null) {
                  registroServico.registrarEventoDoSistema(LogEventosMIDs.PARTIDA_SISTEMA_CADASTRO_ADMIN_SUCESSO, "uid_admin", String.valueOf(adminCriado.getId()), "email_admin", adminCriado.getEmail());
-                JOptionPane.showMessageDialog(this, 
-                    "Administrador configurado com sucesso!\nE-mail do Administrador: " + adminCriado.getEmail() + "\nPróximo passo: Configurar Autenticação de Dois Fatores (TOTP).",
-                    "Setup Concluído", 
-                    JOptionPane.INFORMATION_MESSAGE);
+                registroServico.registrarEventoDoSistema(LogEventosMIDs.SETUP_ADMIN_SUCESSO_GUI, Map.of("emailAdmin", adminCriado.getEmail(), "uidAdmin", String.valueOf(adminCriado.getId()), "kidChaveiro", String.valueOf(adminCriado.getKid() != null ? adminCriado.getKid() : "N/A")));
+                JOptionPane.showMessageDialog(this, "Administrador configurado com sucesso!\nE-mail: " + adminCriado.getEmail() + "\nNome: " + adminCriado.getNome(), "Setup Concluído", JOptionPane.INFORMATION_MESSAGE);
                 
                 this.usuarioEmCadastro = adminCriado;
-                showTotpQrCodePanel(adminCriado, senhaPessoal); 
+                // showTotpQrCodePanel(adminCriado, senhaPessoal); // Comentado temporariamente para focar no fluxo de login pós-setup
+                showScreen(LOGIN_PANEL);
             } else {
                 registroServico.registrarEventoDoSistema(LogEventosMIDs.PARTIDA_SISTEMA_CADASTRO_ADMIN_FALHA, "motivo", "setupInitialAdmin retornou nulo");
                 JOptionPane.showMessageDialog(this, "Falha ao configurar o administrador. Verifique os logs.", "Erro no Setup", JOptionPane.ERROR_MESSAGE);
@@ -347,19 +347,12 @@ public class MainFrame extends JFrame {
     }
 
     public void onAdminSetupComplete() {
-        // Após o setup do admin, o sistema deve provavelmente ir para a tela de validação da frase secreta
-        // ou diretamente para o login se a frase já foi validada e armazenada na sessão de alguma forma.
-        // Por simplicidade, e alinhado com o fluxo de "não primeira execução", vamos para VALIDATE_ADMIN_PASSPHRASE_PANEL.
-        // Isso também permite que o admin recém-configurado teste sua frase secreta.
-        this.usuarioEmLogin = null; // Limpa qualquer estado de login anterior
-        this.senhaEmLogin = null;
+        System.out.println("DEBUG: MainFrame.onAdminSetupComplete() FOI CHAMADO INESPERADAMENTE E AGORA ESTÁ INOFENSIVO.");
         // Limpar campos do setupAdminPanel pode ser feito no próprio painel ao concluir, ou aqui.
         if (setupAdminPanel != null) {
-            setupAdminPanel.limparCampos();
+            // setupAdminPanel.limparCampos(); // Talvez a limpeza devesse ser aqui se este fosse o callback final.
         }
-        // O log PARTIDA_SISTEMA_OPERACAO_NORMAL será feito em onAdminPassphraseValidated
-        // que é para onde este showScreen deve levar, em última instância.
-        showScreen(VALIDATE_ADMIN_PASSPHRASE_PANEL);
+        // Nenhuma navegação aqui para evitar conflito.
     }
 
     public void onUserLoginRequired() {
