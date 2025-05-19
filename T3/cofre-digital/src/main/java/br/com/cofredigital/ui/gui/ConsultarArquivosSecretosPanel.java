@@ -102,12 +102,12 @@ public class ConsultarArquivosSecretosPanel extends JPanel {
         // Listener do botão Listar
         btnListar.addActionListener(e -> {
             String caminhoPasta = getCaminhoPasta();
-            String fraseSecreta = getFraseSecreta();
+            String fraseSecretaUsuario = getFraseSecreta();
             if (usuarioLogado == null) {
                 JOptionPane.showMessageDialog(this, "Usuário não definido.", "Erro", JOptionPane.ERROR_MESSAGE);
                 return;
             }
-            if (caminhoPasta.isEmpty() || fraseSecreta.isEmpty()) {
+            if (caminhoPasta.isEmpty() || fraseSecretaUsuario.isEmpty()) {
                 JOptionPane.showMessageDialog(this, "Preencha o caminho da pasta e a frase secreta.", "Campos obrigatórios", JOptionPane.WARNING_MESSAGE);
                 return;
             }
@@ -116,47 +116,7 @@ public class ConsultarArquivosSecretosPanel extends JPanel {
                 return;
             }
             try {
-                // 1. Decriptar a chave privada do usuário logado usando a frase secreta fornecida
-                int kid = usuarioLogado.getKid();
-                br.com.cofredigital.persistencia.modelo.Chaveiro chaveiroUsuario = usuarioServico.buscarChaveiroPorKid(kid).orElseThrow(() -> new Exception("Chaveiro não encontrado para o usuário."));
-                java.security.PrivateKey chavePrivadaUsuario;
-                try {
-                    chavePrivadaUsuario = br.com.cofredigital.crypto.PrivateKeyUtil.loadEncryptedPKCS8PrivateKeyFromDERBytes(
-                        chaveiroUsuario.getChavePrivadaCriptografada(), fraseSecreta
-                    );
-                } catch (Exception exPriv) {
-                    // Erro ao decriptar a chave privada: provavelmente frase secreta errada
-                    JOptionPane.showMessageDialog(this, "Frase secreta incorreta para decriptar a chave privada do usuário.", "Erro de autenticação", JOptionPane.ERROR_MESSAGE);
-                    return;
-                }
-                java.security.cert.X509Certificate certificadoUsuario = br.com.cofredigital.crypto.CertificateUtil.loadCertificateFromPEMString(chaveiroUsuario.getCertificadoPem());
-
-                // 2. Ler arquivos do índice
-                String basePath = caminhoPasta;
-                byte[] envBytes = br.com.cofredigital.util.ArquivoProtegidoUtil.lerArquivo(basePath + "/index.env");
-                byte[] encBytes = br.com.cofredigital.util.ArquivoProtegidoUtil.lerArquivo(basePath + "/index.enc");
-                byte[] asdBytes = br.com.cofredigital.util.ArquivoProtegidoUtil.lerArquivo(basePath + "/index.asd");
-
-                // 3. Decriptar envelope digital com a chave privada do usuário logado
-                byte[] semente;
-                try {
-                    semente = br.com.cofredigital.util.ArquivoProtegidoUtil.decriptarEnvelope(envBytes, chavePrivadaUsuario);
-                } catch (java.security.GeneralSecurityException exEnv) {
-                    // Erro ao decriptar o envelope: provavelmente não é o dono
-                    JOptionPane.showMessageDialog(this, "Você não tem permissão para acessar este arquivo secreto, pois não é o dono dele.", "Permissão negada", JOptionPane.ERROR_MESSAGE);
-                    return;
-                } catch (Exception exEnv) {
-                    // Outros erros ao decriptar o envelope
-                    JOptionPane.showMessageDialog(this, "Erro ao decriptar envelope digital: " + exEnv.getMessage(), "Erro", JOptionPane.ERROR_MESSAGE);
-                    return;
-                }
-                // 4. Gerar chave AES
-                javax.crypto.SecretKey chaveAES = br.com.cofredigital.util.ArquivoProtegidoUtil.gerarChaveAES(semente);
-                // 5. Decriptar índice
-                byte[] indiceDecriptado = br.com.cofredigital.util.ArquivoProtegidoUtil.decriptarArquivoAES(encBytes, chaveAES);
-
-                // 6. Verificar assinatura digital do índice usando o certificado do ADMINISTRADOR
-                // Buscar o admin do sistema
+                // 1. Buscar o admin do sistema
                 br.com.cofredigital.autenticacao.modelo.Usuario admin = usuarioServico.listarTodos().stream()
                     .filter(u -> u.getGrupo() != null && u.getGrupo().equalsIgnoreCase("Administrador"))
                     .findFirst().orElse(null);
@@ -166,13 +126,53 @@ public class ConsultarArquivosSecretosPanel extends JPanel {
                 }
                 int adminKid = admin.getKid();
                 br.com.cofredigital.persistencia.modelo.Chaveiro chaveiroAdmin = usuarioServico.buscarChaveiroPorKid(adminKid).orElseThrow(() -> new Exception("Chaveiro do admin não encontrado."));
+                // 2. Obter a frase secreta do admin da sessão
+                String fraseSecretaAdmin = usuarioServico.getAdminPassphraseForSession();
+                if (fraseSecretaAdmin == null || fraseSecretaAdmin.isEmpty()) {
+                    JOptionPane.showMessageDialog(this, "A frase secreta do administrador não está disponível na sessão. Por favor, reinicie o sistema e faça o login do administrador para liberar o acesso.", "Acesso não autorizado", JOptionPane.ERROR_MESSAGE);
+                    return;
+                }
+                // 3. Decriptar a chave privada do admin
+                java.security.PrivateKey chavePrivadaAdmin;
+                try {
+                    chavePrivadaAdmin = br.com.cofredigital.crypto.PrivateKeyUtil.loadEncryptedPKCS8PrivateKeyFromDERBytes(
+                        chaveiroAdmin.getChavePrivadaCriptografada(), fraseSecretaAdmin
+                    );
+                } catch (Exception exPriv) {
+                    JOptionPane.showMessageDialog(this, "Frase secreta incorreta para decriptar a chave privada do administrador.", "Erro de autenticação", JOptionPane.ERROR_MESSAGE);
+                    return;
+                }
                 java.security.cert.X509Certificate certificadoAdmin = br.com.cofredigital.crypto.CertificateUtil.loadCertificateFromPEMString(chaveiroAdmin.getCertificadoPem());
+
+                // 4. Ler arquivos do índice
+                String basePath = caminhoPasta;
+                byte[] envBytes = br.com.cofredigital.util.ArquivoProtegidoUtil.lerArquivo(basePath + "/index.env");
+                byte[] encBytes = br.com.cofredigital.util.ArquivoProtegidoUtil.lerArquivo(basePath + "/index.enc");
+                byte[] asdBytes = br.com.cofredigital.util.ArquivoProtegidoUtil.lerArquivo(basePath + "/index.asd");
+
+                // 5. Decriptar envelope digital com a chave privada do admin
+                byte[] semente;
+                try {
+                    semente = br.com.cofredigital.util.ArquivoProtegidoUtil.decriptarEnvelope(envBytes, chavePrivadaAdmin);
+                } catch (java.security.GeneralSecurityException exEnv) {
+                    JOptionPane.showMessageDialog(this, "Erro ao decriptar envelope digital do índice com a chave do administrador.", "Permissão negada", JOptionPane.ERROR_MESSAGE);
+                    return;
+                } catch (Exception exEnv) {
+                    JOptionPane.showMessageDialog(this, "Erro ao decriptar envelope digital: " + exEnv.getMessage(), "Erro", JOptionPane.ERROR_MESSAGE);
+                    return;
+                }
+                // 6. Gerar chave AES
+                javax.crypto.SecretKey chaveAES = br.com.cofredigital.util.ArquivoProtegidoUtil.gerarChaveAES(semente);
+                // 7. Decriptar índice
+                byte[] indiceDecriptado = br.com.cofredigital.util.ArquivoProtegidoUtil.decriptarArquivoAES(encBytes, chaveAES);
+
+                // 8. Verificar assinatura digital do índice usando o certificado do ADMINISTRADOR
                 boolean assinaturaOk = br.com.cofredigital.util.ArquivoProtegidoUtil.verificarAssinatura(indiceDecriptado, asdBytes, certificadoAdmin.getPublicKey());
                 if (!assinaturaOk) {
                     JOptionPane.showMessageDialog(this, "Assinatura digital do índice inválida! Arquivo pode ter sido adulterado.", "Erro de integridade", JOptionPane.ERROR_MESSAGE);
                     return;
                 }
-                // 7. Ler linhas e preencher tabela
+                // 9. Ler linhas e preencher tabela
                 limparTabela();
                 String conteudo = new String(indiceDecriptado, java.nio.charset.StandardCharsets.UTF_8);
                 String[] linhas = conteudo.split("\\n");
@@ -192,7 +192,6 @@ public class ConsultarArquivosSecretosPanel extends JPanel {
                 }
                 JOptionPane.showMessageDialog(this, "Consulta realizada com sucesso!", "Sucesso", JOptionPane.INFORMATION_MESSAGE);
             } catch (Exception ex) {
-                // Erro genérico não tratado acima
                 JOptionPane.showMessageDialog(this, "Erro ao consultar arquivos secretos: " + ex.getMessage(), "Erro", JOptionPane.ERROR_MESSAGE);
             }
         });

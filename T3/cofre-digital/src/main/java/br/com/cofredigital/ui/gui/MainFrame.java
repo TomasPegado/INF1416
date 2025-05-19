@@ -48,7 +48,7 @@ public class MainFrame extends JFrame {
     public static final String USER_MAIN_PANEL = "UserMainPanel"; // Adicionada
     public static final String LOGOUT_EXIT_PANEL = "LogoutExitPanel"; // Adicionada
     public static final String CONSULTAR_ARQUIVOS_SECRETOS_PANEL = "ConsultarArquivosSecretosPanel";
-    // Adicionar outras constantes conforme necessário (ex: VALIDATE_ADMIN_PASSPHRASE_PANEL)
+    
 
     // Estado temporário para integração do fluxo
     private Usuario usuarioEmCadastro;
@@ -437,13 +437,12 @@ public class MainFrame extends JFrame {
         this.usuarioEmLogin = null;
         // this.senhaEmLogin já é limpa no fluxo de validação do TOTP.
 
-        // Limpar a frase secreta do administrador da sessão da aplicação
-        // para forçar a revalidação se um administrador tentar logar novamente
-        // e o fluxo da aplicação exigir essa validação.
-        if (this.usuarioServico != null) {
-            this.usuarioServico.storeAdminPassphraseForSession(null);
-            System.out.println("[MainFrame] Frase secreta do administrador da aplicação foi limpa da sessão.");
-        }
+        // NÃO limpar a frase secreta do admin aqui!
+        // A frase secreta do admin só deve ser limpa quando o sistema for encerrado.
+        // if (this.usuarioServico != null) {
+        //     this.usuarioServico.storeAdminPassphraseForSession(null);
+        //     System.out.println("[MainFrame] Frase secreta do administrador da aplicação foi limpa da sessão.");
+        // }
 
         showScreen(LOGIN_PANEL);
     }
