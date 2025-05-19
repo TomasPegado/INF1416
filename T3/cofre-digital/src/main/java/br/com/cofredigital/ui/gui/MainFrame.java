@@ -168,14 +168,8 @@ public class MainFrame extends JFrame {
                             adminMainPanel.setAdminLogado(MainFrame.this.usuarioEmLogin);
                             showScreen(ADMIN_MAIN_PANEL);
                         } else {
-                            // Para usuários não-administradores
-                            JOptionPane.showMessageDialog(MainFrame.this,
-                                "Login de usuário (" + MainFrame.this.usuarioEmLogin.getEmail() + ") bem-sucedido!",
-                                "Login Concluído",
-                                JOptionPane.INFORMATION_MESSAGE);
-                            //  Por enquanto, volta para a tela de login após sucesso de usuário comum
-                            //  Idealmente, haveria um UserMainPanel ou algo similar.
-                             logout(); // Ou showScreen(LOGIN_PANEL) diretamente se logout fizer mais coisas
+                            userMainPanel.preparePanel(MainFrame.this.usuarioEmLogin);
+                            showScreen(USER_MAIN_PANEL);
                         }
                         // TODO: Navegar para a tela principal da aplicação pós-login
                         // JOptionPane.showMessageDialog(MainFrame.this, "Login totalmente concluído!");
