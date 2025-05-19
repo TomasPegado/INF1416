@@ -83,8 +83,21 @@ public class AdminMainPanel extends JPanel {
         btnConsultarPasta.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                // Ação para Consultar Pasta (Placeholder)
-                JOptionPane.showMessageDialog(AdminMainPanel.this, "Funcionalidade 'Consultar Pasta' ainda não implementada.", "Aviso", JOptionPane.INFORMATION_MESSAGE);
+                // Ação para Consultar Pasta
+                if (adminLogado != null) {
+                    int totalConsultas = 0;
+                    try {
+                        Usuario usuarioCompleto = usuarioServico.buscarPorId(adminLogado.getId());
+                        if (usuarioCompleto != null) {
+                            totalConsultas = usuarioCompleto.getTotalAcessos();
+                        }
+                    } catch (Exception ex) {
+                        // Se der erro, mantém 0
+                    }
+                    mainFrame.showConsultarArquivosSecretosPanel(adminLogado, totalConsultas);
+                } else {
+                    JOptionPane.showMessageDialog(AdminMainPanel.this, "Erro: Administrador não logado.", "Erro", JOptionPane.ERROR_MESSAGE);
+                }
             }
         });
 

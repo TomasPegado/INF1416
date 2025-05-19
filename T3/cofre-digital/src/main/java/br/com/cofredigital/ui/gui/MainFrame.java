@@ -42,6 +42,7 @@ public class MainFrame extends JFrame {
     public static final String USER_REGISTRATION_ADMIN_PANEL = "UserRegistrationAdminPanel"; // Nova constante
     public static final String USER_MAIN_PANEL = "UserMainPanel"; // Adicionada
     public static final String LOGOUT_EXIT_PANEL = "LogoutExitPanel"; // Adicionada
+    public static final String CONSULTAR_ARQUIVOS_SECRETOS_PANEL = "ConsultarArquivosSecretosPanel";
     // Adicionar outras constantes conforme necessário (ex: VALIDATE_ADMIN_PASSPHRASE_PANEL)
 
     // Estado temporário para integração do fluxo
@@ -56,6 +57,7 @@ public class MainFrame extends JFrame {
     private UserRegistrationAdminPanel userRegistrationAdminPanel; // Novo painel de cadastro pelo admin
     private UserMainPanel userMainPanel; // Adicionado
     private LogoutExitPanel logoutExitPanel; // Adicionado
+    private ConsultarArquivosSecretosPanel consultarArquivosSecretosPanel;
 
     public MainFrame(UsuarioServico usuarioServico, TotpServico totpServico, RegistroServico registroServico) {
         this.usuarioServico = usuarioServico;
@@ -223,6 +225,9 @@ public class MainFrame extends JFrame {
         logoutExitPanel = new LogoutExitPanel(this); // Instanciação
         logoutExitPanel.setName(LOGOUT_EXIT_PANEL);
 
+        consultarArquivosSecretosPanel = new ConsultarArquivosSecretosPanel();
+        consultarArquivosSecretosPanel.setName(CONSULTAR_ARQUIVOS_SECRETOS_PANEL);
+
         mainPanel.add(loginPanel, LOGIN_PANEL);
         mainPanel.add(cadastroPanel, CADASTRO_PANEL);
         mainPanel.add(qrCodePanel, TOTP_QRCODE_PANEL);
@@ -233,6 +238,7 @@ public class MainFrame extends JFrame {
         mainPanel.add(userRegistrationAdminPanel, USER_REGISTRATION_ADMIN_PANEL); // Adicionar ao CardLayout
         mainPanel.add(userMainPanel, USER_MAIN_PANEL); // Adicionar ao CardLayout
         mainPanel.add(logoutExitPanel, LOGOUT_EXIT_PANEL); // Adicionar ao CardLayout
+        mainPanel.add(consultarArquivosSecretosPanel, CONSULTAR_ARQUIVOS_SECRETOS_PANEL);
 
         add(mainPanel);
     }
@@ -287,6 +293,8 @@ public class MainFrame extends JFrame {
             } else if (USER_MAIN_PANEL.equals(panelName)) {
                 // Log já no construtor do painel
             } else if (LOGOUT_EXIT_PANEL.equals(panelName)) {
+                // Log já no construtor do painel
+            } else if (CONSULTAR_ARQUIVOS_SECRETOS_PANEL.equals(panelName)) {
                 // Log já no construtor do painel
             }
             // Adicionar logs para outras telas conforme são implementadas (ex: TELA_PRINCIPAL_APRESENTADA)
@@ -470,5 +478,11 @@ public class MainFrame extends JFrame {
         } else {
             JOptionPane.showMessageDialog(this, "Erro ao carregar tela de validação TOTP.", "Erro", JOptionPane.ERROR_MESSAGE);
         }
+    }
+
+    public void showConsultarArquivosSecretosPanel(Usuario usuario, int totalConsultas) {
+        consultarArquivosSecretosPanel.setUsuarioLogado(usuario, totalConsultas);
+        consultarArquivosSecretosPanel.limparTabela();
+        showScreen(CONSULTAR_ARQUIVOS_SECRETOS_PANEL);
     }
 } 
