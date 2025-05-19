@@ -66,4 +66,9 @@ public class TotpValidationPanel extends JPanel {
 
     protected void onTotpValidated() {}
     protected void onBack() {}
+
+    public void resetFields() {
+        codigoField.setText("");
+        statusLabel.setText(" ");
+    }
 } 

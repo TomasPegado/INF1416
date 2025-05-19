@@ -164,4 +164,14 @@ public class LoginPanel extends JPanel {
     public String getEmail() {
         return emailField.getText().trim();
     }
+
+    public void resetFields() {
+        emailField.setText("");
+        statusLabel.setText("");
+        statusLabel.setForeground(Color.RED);
+        if (tecladoVirtualPanel != null) {
+            tecladoVirtualPanel.limparSenha();
+        }
+        loginButton.setEnabled(false);
+    }
 } 

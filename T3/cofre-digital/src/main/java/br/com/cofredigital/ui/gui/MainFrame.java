@@ -59,6 +59,8 @@ public class MainFrame extends JFrame {
     private LogoutExitPanel logoutExitPanel; // Adicionado
     private ConsultarArquivosSecretosPanel consultarArquivosSecretosPanel;
 
+    private LoginPanel loginPanel; // Torna loginPanel um atributo da classe
+
     public MainFrame(UsuarioServico usuarioServico, TotpServico totpServico, RegistroServico registroServico) {
         this.usuarioServico = usuarioServico;
         this.totpServico = totpServico;
@@ -85,12 +87,11 @@ public class MainFrame extends JFrame {
         mainPanel = new JPanel(cardLayout);
 
         // Painel de Login
-        LoginPanel loginPanel = new LoginPanel(usuarioServico, registroServico) {
+        loginPanel = new LoginPanel(usuarioServico, registroServico) {
             @Override
             protected void onLoginSuccess(String email, String senhaPlanaVerificada) {
                 MainFrame.this.usuarioEmLogin = usuarioServico.buscarPorEmail(email);
                 MainFrame.this.senhaEmLogin = senhaPlanaVerificada;
-                
                 if (MainFrame.this.usuarioEmLogin == null) {
                     JOptionPane.showMessageDialog(MainFrame.this, 
                                                 "Erro crítico: Usuário não encontrado após login bem-sucedido.", 
@@ -98,10 +99,8 @@ public class MainFrame extends JFrame {
                     showScreen(LOGIN_PANEL);
                     return;
                 }
-
                 showScreen(TOTP_VALIDATION_PANEL);
             }
-
             @Override
             protected void onGoToCadastro() {
                 showScreen(CADASTRO_PANEL);
@@ -257,6 +256,9 @@ public class MainFrame extends JFrame {
 
     // Método para trocar a tela visível
     public void showScreen(String panelName) {
+        if (LOGIN_PANEL.equals(panelName)) {
+            loginPanel.resetFields(); // Limpa campos e mensagens ao exibir tela de login
+        }
         cardLayout.show(mainPanel, panelName);
         
         if (registroServico != null) {
@@ -270,12 +272,14 @@ public class MainFrame extends JFrame {
                 registroServico.registrarEventoDoUsuario(LogEventosMIDs.CAD_TELA_APRESENTADA_GUI, operadorUid, "contexto", "cadastro_usuario");
             } else if (TOTP_VALIDATION_PANEL.equals(panelName)) {
                 TotpValidationPanel tvp = (TotpValidationPanel) getPanelByName(TOTP_VALIDATION_PANEL);
-                if (tvp != null && usuarioEmLogin != null) {
-                    tvp.setCurrentUserEmailForLog(usuarioEmLogin.getEmail());
-                    registroServico.registrarEventoDoUsuario(LogEventosMIDs.AUTH_ETAPA3_TELA_APRESENTADA_GUI, usuarioEmLogin.getId(), "email_usuario", usuarioEmLogin.getEmail());
-                } else {
-                    // Log de erro se não puder setar o email ou usuarioEmLogin for nulo
-                    registroServico.registrarEventoDoSistema(LogEventosMIDs.AUTH_ETAPA3_TELA_APRESENTADA_GUI, "erro", "usuario_contexto_ausente_para_log_tela_totp");
+                if (tvp != null) {
+                    tvp.resetFields();
+                    if (usuarioEmLogin != null) {
+                        tvp.setCurrentUserEmailForLog(usuarioEmLogin.getEmail());
+                        registroServico.registrarEventoDoUsuario(LogEventosMIDs.AUTH_ETAPA3_TELA_APRESENTADA_GUI, usuarioEmLogin.getId(), "email_usuario", usuarioEmLogin.getEmail());
+                    } else {
+                        registroServico.registrarEventoDoSistema(LogEventosMIDs.AUTH_ETAPA3_TELA_APRESENTADA_GUI, "erro", "usuario_contexto_ausente_para_log_tela_totp");
+                    }
                 }
             } else if (SETUP_ADMIN_PANEL.equals(panelName)) {
                 // Log já no construtor do painel
@@ -419,11 +423,29 @@ public class MainFrame extends JFrame {
     
     // Novo método logout
     public void logout() {
-        this.registroServico.registrarEventoDoUsuario(LogEventosMIDs.AUTH_LOGOUT_USUARIO, 
-                                                    (this.usuarioEmLogin != null ? this.usuarioEmLogin.getId() : null), 
-                                                    "email_usuario", (this.usuarioEmLogin != null ? this.usuarioEmLogin.getEmail() : "N/A"));
+        if (this.registroServico != null && this.usuarioEmLogin != null) {
+            this.registroServico.registrarEventoDoUsuario(LogEventosMIDs.AUTH_LOGOUT_USUARIO, 
+                                                        this.usuarioEmLogin.getId(), 
+                                                        "email_usuario", this.usuarioEmLogin.getEmail());
+        } else if (this.registroServico != null) {
+             this.registroServico.registrarEventoDoSistema(LogEventosMIDs.AUTH_LOGOUT_USUARIO, "detalhe", "Usuário já era nulo ou registroServiço indisponível no logout");
+        }
+        
+        if (this.usuarioEmLogin != null) {
+            System.out.println("[MainFrame] Encerrando sessão para: " + this.usuarioEmLogin.getEmail());
+        }
+
         this.usuarioEmLogin = null;
-        // this.senhaEmLogin já deve ter sido limpa após uso no TotpValidationPanel
+        // this.senhaEmLogin já é limpa no fluxo de validação do TOTP.
+
+        // Limpar a frase secreta do administrador da sessão da aplicação
+        // para forçar a revalidação se um administrador tentar logar novamente
+        // e o fluxo da aplicação exigir essa validação.
+        if (this.usuarioServico != null) {
+            this.usuarioServico.storeAdminPassphraseForSession(null);
+            System.out.println("[MainFrame] Frase secreta do administrador da aplicação foi limpa da sessão.");
+        }
+
         showScreen(LOGIN_PANEL);
     }
 
