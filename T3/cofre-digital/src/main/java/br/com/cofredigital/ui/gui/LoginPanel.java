@@ -15,7 +15,6 @@ import br.com.cofredigital.log.LogEventosMIDs;
 public class LoginPanel extends JPanel {
     private final JTextField emailField;
     private final JButton loginButton;
-    private final JButton cadastroButton;
     private final JLabel statusLabel;
     private final TecladoVirtualPanel tecladoVirtualPanel;
     private final UsuarioServico usuarioServico;
@@ -30,7 +29,6 @@ public class LoginPanel extends JPanel {
         // Inicializar componentes de UI que NÃO dependem do teclado virtual diretamente para o callback
         emailField = new JTextField(20);
         loginButton = new JButton("Entrar");
-        cadastroButton = new JButton("Cadastrar-se");
         statusLabel = new JLabel(" ");
         statusLabel.setForeground(Color.RED);
         loginButton.setEnabled(false); // Botão de login começa desabilitado
@@ -66,9 +64,9 @@ public class LoginPanel extends JPanel {
         gbc.gridx = 0; gbc.gridy++; gbc.gridwidth = 2; gbc.anchor = GridBagConstraints.CENTER;
         add(loginButton, gbc);
         
-        // Linha 3: Botão Cadastro
+        // Linha 3: (Removido botão Cadastro)
         gbc.gridy++;
-        add(cadastroButton, gbc);
+        // (Nada adicionado aqui)
 
         // Linha 4: Status Label
         gbc.gridy++;
@@ -141,12 +139,6 @@ public class LoginPanel extends JPanel {
                 }
             }
         });
-
-        cadastroButton.addActionListener((ActionEvent e) -> {
-            // Log de clique no botão de ir para cadastro
-            // this.registroServico.registrarEventoDoSistema(MID_CLIQUE_BOTAO_IR_CADASTRO_LOGIN_PANEL);
-            onGoToCadastro();
-        });
     }
 
     // Modificado para passar dados necessários para a próxima etapa (ex: TOTP)
@@ -155,10 +147,6 @@ public class LoginPanel extends JPanel {
         // A senhaPlanaVerificada pode ser usada aqui ou passada para o MainFrame
         // para ser usada na obtenção da chave TOTP antes de exibir o painel TOTP.
         // Por segurança, se não for usada imediatamente aqui, deve ser gerenciada com cuidado.
-    }
-    
-    protected void onGoToCadastro() {
-        System.out.println("Ir para a tela de cadastro.");
     }
 
     public String getEmail() {
