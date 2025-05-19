@@ -5,6 +5,7 @@ import br.com.cofredigital.persistencia.modelo.Registro;
 
 import java.sql.*;
 import java.time.LocalDateTime;
+import java.util.List;
 
 public class RegistroDAOImpl implements RegistroDAO {
 
@@ -55,6 +56,27 @@ public class RegistroDAOImpl implements RegistroDAO {
             // e.printStackTrace(); // Descomentar para debug
             throw e; // Relança a exceção para ser tratada pela camada de serviço
         }
+    }
+
+    @Override
+    public List<Registro> listarTodos() throws SQLException {
+        String sql = "SELECT * FROM Registros ORDER BY data_hora ASC";
+        List<Registro> registros = new java.util.ArrayList<>();
+        try (Connection conn = DatabaseManager.getConnection();
+             Statement stmt = conn.createStatement();
+             ResultSet rs = stmt.executeQuery(sql)) {
+            while (rs.next()) {
+                Registro reg = new Registro();
+                reg.setRid(rs.getLong("rid"));
+                reg.setDataHora(rs.getTimestamp("data_hora").toLocalDateTime());
+                reg.setMid(rs.getInt("mid"));
+                long uid = rs.getLong("uid");
+                reg.setUid(rs.wasNull() ? null : uid);
+                reg.setDetalhesAdicionais(rs.getString("detalhes_adicionais"));
+                registros.add(reg);
+            }
+        }
+        return registros;
     }
 
     // Implementações para listarTodos, buscarPorUid, etc., podem ser adicionadas aqui no futuro.

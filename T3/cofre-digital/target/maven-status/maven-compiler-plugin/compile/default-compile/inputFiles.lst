@@ -9,6 +9,7 @@
 /home/tomas/PUC/6_periodo/Seguranca/INF1416/T3/cofre-digital/src/main/java/br/com/cofredigital/crypto/TOTP.java
 /home/tomas/PUC/6_periodo/Seguranca/INF1416/T3/cofre-digital/src/main/java/br/com/cofredigital/log/LogEventosMIDs.java
 /home/tomas/PUC/6_periodo/Seguranca/INF1416/T3/cofre-digital/src/main/java/br/com/cofredigital/log/servico/RegistroServico.java
+/home/tomas/PUC/6_periodo/Seguranca/INF1416/T3/cofre-digital/src/main/java/br/com/cofredigital/logview/LogView.java
 /home/tomas/PUC/6_periodo/Seguranca/INF1416/T3/cofre-digital/src/main/java/br/com/cofredigital/persistencia/DatabaseManager.java
 /home/tomas/PUC/6_periodo/Seguranca/INF1416/T3/cofre-digital/src/main/java/br/com/cofredigital/persistencia/dao/ChaveiroDAO.java
 /home/tomas/PUC/6_periodo/Seguranca/INF1416/T3/cofre-digital/src/main/java/br/com/cofredigital/persistencia/dao/ChaveiroDAOImpl.java
