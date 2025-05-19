@@ -278,6 +278,11 @@ public class ConsultarArquivosSecretosPanel extends JPanel {
         tabelaModel.setRowCount(0);
     }
 
+    public void limparCamposDeEntrada() {
+        txtCaminhoPasta.setText("");
+        txtFraseSecreta.setText("");
+    }
+
     public void setUsuarioServico(UsuarioServico usuarioServico) {
         this.usuarioServico = usuarioServico;
     }

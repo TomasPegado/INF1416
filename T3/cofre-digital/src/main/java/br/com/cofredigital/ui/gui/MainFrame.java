@@ -504,6 +504,7 @@ public class MainFrame extends JFrame {
     public void showConsultarArquivosSecretosPanel(Usuario usuario, int totalConsultas) {
         consultarArquivosSecretosPanel.setUsuarioLogado(usuario, totalConsultas);
         consultarArquivosSecretosPanel.limparTabela();
+        consultarArquivosSecretosPanel.limparCamposDeEntrada();
         showScreen(CONSULTAR_ARQUIVOS_SECRETOS_PANEL);
     }
 
@@ -524,6 +525,8 @@ public class MainFrame extends JFrame {
             // Injeta o serviço de usuário e o usuário logado
             consultarArquivosSecretosPanel.setUsuarioServico(usuarioServico);
             consultarArquivosSecretosPanel.setUsuarioLogado(usuarioEmLogin, usuarioEmLogin.getTotalAcessos());
+            consultarArquivosSecretosPanel.limparTabela();
+            consultarArquivosSecretosPanel.limparCamposDeEntrada();
             // Exibe o painel
             showScreen(CONSULTAR_ARQUIVOS_SECRETOS_PANEL);
         } catch (Exception ex) {
