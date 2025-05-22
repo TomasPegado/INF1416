@@ -143,7 +143,7 @@ public class LogoutExitPanel extends JPanel {
                     mainFrame.showScreen(MainFrame.USER_MAIN_PANEL); 
                 }
             } else {
-                mainFrame.showScreen(MainFrame.LOGIN_PANEL); // Fallback
+                mainFrame.showScreen(MainFrame.EMAIL_VERIFICATION_PANEL); // Fallback to new email screen
             }
         });
     }

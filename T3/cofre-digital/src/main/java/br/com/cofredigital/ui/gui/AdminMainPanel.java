@@ -102,7 +102,7 @@ public class AdminMainPanel extends JPanel {
                     mainFrame.showLogoutExitPanel(adminLogado);
                 } else {
                     // Fallback, embora o admin deva estar logado para ver este painel
-                    mainFrame.showScreen(MainFrame.LOGIN_PANEL);
+                    mainFrame.showScreen(MainFrame.EMAIL_VERIFICATION_PANEL);
                 }
             }
         });

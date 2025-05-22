@@ -5,7 +5,7 @@ package br.com.cofredigital.ui.gui;
 import br.com.cofredigital.autenticacao.servico.TotpServico;
 import br.com.cofredigital.autenticacao.servico.UsuarioServico;
 import br.com.cofredigital.ui.gui.CadastroUsuarioPanel;
-import br.com.cofredigital.ui.gui.LoginPanel;
+// import br.com.cofredigital.ui.gui.LoginPanel; // Removed unused import
 import br.com.cofredigital.ui.gui.TotpQrCodePanel;
 import br.com.cofredigital.ui.gui.TotpValidationPanel;
 import br.com.cofredigital.autenticacao.modelo.Usuario;
@@ -39,7 +39,6 @@ public class MainFrame extends JFrame {
     private JPanel mainPanel; // Painel que conterá outros painéis (telas)
 
     // Constantes para os nomes dos painéis (telas)
-    public static final String LOGIN_PANEL = "LoginPanel";
     public static final String CADASTRO_PANEL = "CadastroUsuarioPanel";
     public static final String TOTP_QRCODE_PANEL = "TotpQrCodePanel";
     public static final String TOTP_VALIDATION_PANEL = "TotpValidationPanel";
@@ -51,6 +50,9 @@ public class MainFrame extends JFrame {
     public static final String LOGOUT_EXIT_PANEL = "LogoutExitPanel"; // Adicionada
     public static final String CONSULTAR_ARQUIVOS_SECRETOS_PANEL = "ConsultarArquivosSecretosPanel";
     
+    // Painéis para o novo fluxo de autenticação em duas etapas
+    public static final String EMAIL_VERIFICATION_PANEL = "EmailVerificationPanel";
+    public static final String PASSWORD_PANEL = "PasswordPanel";
 
     // Estado temporário para integração do fluxo
     private Usuario usuarioEmCadastro;
@@ -66,7 +68,11 @@ public class MainFrame extends JFrame {
     private LogoutExitPanel logoutExitPanel; // Adicionado
     private ConsultarArquivosSecretosPanel consultarArquivosSecretosPanel;
 
-    private LoginPanel loginPanel; // Torna loginPanel um atributo da classe
+    // Painéis do novo fluxo
+    private EmailVerificationPanel emailVerificationPanel;
+    private PasswordPanel passwordPanel;
+
+    // private LoginPanel loginPanel; // Old combined login panel, now superseded
 
     public MainFrame(UsuarioServico usuarioServico, TotpServico totpServico, RegistroServico registroServico) {
         this.usuarioServico = usuarioServico;
@@ -93,7 +99,8 @@ public class MainFrame extends JFrame {
         cardLayout = new CardLayout();
         mainPanel = new JPanel(cardLayout);
 
-        // Painel de Login
+        // Painel de Login (Antigo - combinado)
+        /*
         loginPanel = new LoginPanel(usuarioServico, registroServico) {
             @Override
             protected void onLoginSuccess(String email, String senhaPlanaVerificada) {
@@ -103,14 +110,16 @@ public class MainFrame extends JFrame {
                     JOptionPane.showMessageDialog(MainFrame.this, 
                                                 "Erro crítico: Usuário não encontrado após login bem-sucedido.", 
                                                 "Erro de Login", JOptionPane.ERROR_MESSAGE);
-                    showScreen(LOGIN_PANEL);
+                    showScreen(EMAIL_VERIFICATION_PANEL); // Should go to email verification if error
                     return;
                 }
-                showScreen(TOTP_VALIDATION_PANEL);
+                // showScreen(TOTP_VALIDATION_PANEL); // Old direct to TOTP
+                navigateToTotpValidation(MainFrame.this.usuarioEmLogin, MainFrame.this.senhaEmLogin); // New navigation
             }
             
         };
         loginPanel.setName(LOGIN_PANEL);
+        */
 
         // Painel de Cadastro - passar registroServico
         CadastroUsuarioPanel cadastroPanel = new CadastroUsuarioPanel(usuarioServico, registroServico) {
@@ -132,7 +141,7 @@ public class MainFrame extends JFrame {
             @Override
             protected void onGoToLogin() {
                 // Log de ir para login a partir do painel de cadastro já é feito no CadastroUsuarioPanel
-                showScreen(LOGIN_PANEL);
+                showScreen(EMAIL_VERIFICATION_PANEL);
             }
         };
         cadastroPanel.setName(CADASTRO_PANEL);
@@ -141,7 +150,7 @@ public class MainFrame extends JFrame {
         TotpQrCodePanel qrCodePanel = new TotpQrCodePanel() {
             @Override
             protected void onContinue() {
-                showScreen(LOGIN_PANEL);
+                showScreen(EMAIL_VERIFICATION_PANEL);
             }
         };
         qrCodePanel.setName(TOTP_QRCODE_PANEL);
@@ -196,7 +205,7 @@ public class MainFrame extends JFrame {
                 // Log de voltar já está no painel
                 MainFrame.this.usuarioEmLogin = null;
                 MainFrame.this.senhaEmLogin = null;
-                showScreen(LOGIN_PANEL);
+                showScreen(EMAIL_VERIFICATION_PANEL);
                  // Ao voltar para o LoginPanel, o MainFrame já loga AUTH_ETAPA1_INICIADA quando o LoginPanel é mostrado.
             }
         };
@@ -225,7 +234,13 @@ public class MainFrame extends JFrame {
         consultarArquivosSecretosPanel = new ConsultarArquivosSecretosPanel();
         consultarArquivosSecretosPanel.setName(CONSULTAR_ARQUIVOS_SECRETOS_PANEL);
 
-        mainPanel.add(loginPanel, LOGIN_PANEL);
+        // Instanciar novos painéis de autenticação
+        emailVerificationPanel = new EmailVerificationPanel(usuarioServico, registroServico, this);
+        emailVerificationPanel.setName(EMAIL_VERIFICATION_PANEL);
+
+        passwordPanel = new PasswordPanel(usuarioServico, registroServico, this);
+        passwordPanel.setName(PASSWORD_PANEL);
+
         mainPanel.add(cadastroPanel, CADASTRO_PANEL);
         mainPanel.add(qrCodePanel, TOTP_QRCODE_PANEL);
         mainPanel.add(totpValidationPanel, TOTP_VALIDATION_PANEL);
@@ -236,6 +251,10 @@ public class MainFrame extends JFrame {
         mainPanel.add(userMainPanel, USER_MAIN_PANEL); // Adicionar ao CardLayout
         mainPanel.add(logoutExitPanel, LOGOUT_EXIT_PANEL); // Adicionar ao CardLayout
         mainPanel.add(consultarArquivosSecretosPanel, CONSULTAR_ARQUIVOS_SECRETOS_PANEL);
+
+        // Adicionar novos painéis ao CardLayout
+        mainPanel.add(emailVerificationPanel, EMAIL_VERIFICATION_PANEL);
+        mainPanel.add(passwordPanel, PASSWORD_PANEL);
 
         add(mainPanel);
     }
@@ -248,21 +267,44 @@ public class MainFrame extends JFrame {
             // Não é primeira execução, solicitar frase secreta do admin
             // O log VALIDATE_ADMIN_PASSPHRASE_TELA_APRESENTADA_GUI é feito no construtor do painel.
             // O log PARTIDA_SISTEMA_OPERACAO_NORMAL será feito após a validação bem sucedida da frase.
-            showScreen(VALIDATE_ADMIN_PASSPHRASE_PANEL);
+            if (usuarioServico.isAdminPassphraseValidatedForSession()) {
+                 // Se a frase já foi validada na sessão (ex: admin voltou de outra tela), vai para login
+                // this.registroServico.registrarEventoDoSistema(LogEventosMIDs.AUTH_ETAPA1_INICIADA_GUI, "contexto", "retorno_fluxo_ja_validado_admin_passphrase");
+                // showScreen(LOGIN_PANEL); // Antigo: direto para o LoginPanel combinado
+                showScreen(EMAIL_VERIFICATION_PANEL); // Novo: Inicia com a verificação de email
+            } else {
+                showScreen(VALIDATE_ADMIN_PASSPHRASE_PANEL);
+            }
         }
     }
 
     // Método para trocar a tela visível
     public void showScreen(String panelName) {
-        if (LOGIN_PANEL.equals(panelName)) {
-            loginPanel.resetFields(); // Limpa campos e mensagens ao exibir tela de login
+        // Se estivermos mostrando o painel de login (que agora é o EmailVerificationPanel no fluxo normal),
+        // ou o próprio EmailVerificationPanel diretamente, resetamos seus campos.
+        if (EMAIL_VERIFICATION_PANEL.equals(panelName)) {
+            if (emailVerificationPanel != null) { // Adiciona verificação de nulidade por segurança
+                emailVerificationPanel.resetPanel(); 
+            }
+        } else if (PASSWORD_PANEL.equals(panelName)) {
+            if (passwordPanel != null) {
+                // passwordPanel.resetPanel(); // PasswordPanel já é preparado via prepareForUser ou resetado ao voltar
+            }
         }
+        // Adicionar logs de transição de tela aqui, se necessário
+        // Ex: registroServico.registrarEventoDoSistema(MID_GUI_TELA_EXIBIDA, "nome_tela", panelName);
+
         cardLayout.show(mainPanel, panelName);
         
+        // Se a tela de login (agora EmailVerificationPanel) for mostrada, registrar início da Etapa 1 de autenticação.
+        if (EMAIL_VERIFICATION_PANEL.equals(panelName)) {
+            if (registroServico != null) {
+                registroServico.registrarEventoDoSistema(LogEventosMIDs.AUTH_ETAPA1_INICIADA);
+            }
+        }
+        
         if (registroServico != null) {
-            if (LOGIN_PANEL.equals(panelName)) {
-                registroServico.registrarEventoDoSistema(LogEventosMIDs.AUTH_ETAPA1_INICIADA); 
-            } else if (CADASTRO_PANEL.equals(panelName)) {
+            if (CADASTRO_PANEL.equals(panelName)) {
                 // Para CADASTRO_PANEL, precisamos saber se é um admin operando ou um novo usuário se auto-registrando (se permitido).
                 // Se for um admin logado (usuarioEmLogin != null e é admin), logar com UID dele.
                 // Por agora, um log genérico.
@@ -315,14 +357,14 @@ public class MainFrame extends JFrame {
             // Gerar imagem QR Code usando ZXing
             BufferedImage qrImage = br.com.cofredigital.util.QrCodeUtil.generateQrCodeImage(otpauthUrl, 200, 200);
 
-            TotpQrCodePanel qrCodePanel = (TotpQrCodePanel) getPanelByName(TOTP_QRCODE_PANEL);
-            qrCodePanel.setQrCodeImage(qrImage);
-            qrCodePanel.setSecretKey(chaveSecreta);
+            TotpQrCodePanel qrCodePanelRef = (TotpQrCodePanel) getPanelByName(TOTP_QRCODE_PANEL);
+            qrCodePanelRef.setQrCodeImage(qrImage);
+            qrCodePanelRef.setSecretKey(chaveSecreta);
 
             showScreen(TOTP_QRCODE_PANEL);
         } catch (Exception ex) {
             JOptionPane.showMessageDialog(this, "Erro ao gerar QR Code: " + ex.getMessage(), "Erro", JOptionPane.ERROR_MESSAGE);
-            showScreen(LOGIN_PANEL);
+            showScreen(EMAIL_VERIFICATION_PANEL);
         }
     }
 
@@ -407,18 +449,18 @@ public class MainFrame extends JFrame {
         // para que o fluxo de login possa prosseguir para a etapa de senha pessoal.
         // Por agora, apenas redireciona para o LOGIN_PANEL.
         // (Se o admin acabou de ser configurado, ele precisará logar normalmente).
-        showScreen(LOGIN_PANEL);
+        showScreen(EMAIL_VERIFICATION_PANEL);
     }
 
     public void onAdminSetupComplete() {
         // Log já feito pelo SetupAdminPanel
-        System.out.println("[MainFrame] Admin setup completo (onAdminSetupComplete). Navegando para LOGIN_PANEL.");
-        showScreen(LOGIN_PANEL);
+        System.out.println("[MainFrame] Admin setup completo (onAdminSetupComplete). Navegando para EMAIL_VERIFICATION_PANEL.");
+        showScreen(EMAIL_VERIFICATION_PANEL);
     }
 
     public void onUserLoginRequired() {
-         System.out.println("[MainFrame] User login required. Navegando para LOGIN_PANEL.");
-        showScreen(LOGIN_PANEL);
+         System.out.println("[MainFrame] User login required. Navegando para EMAIL_VERIFICATION_PANEL.");
+        showScreen(EMAIL_VERIFICATION_PANEL);
     }
     
     // Novo método logout
@@ -445,7 +487,7 @@ public class MainFrame extends JFrame {
         //     System.out.println("[MainFrame] Frase secreta do administrador da aplicação foi limpa da sessão.");
         // }
 
-        showScreen(LOGIN_PANEL);
+        showScreen(EMAIL_VERIFICATION_PANEL);
     }
 
     // Novo método placeholder
@@ -484,7 +526,7 @@ public class MainFrame extends JFrame {
             } else if (usuario != null) {
                  showScreen(USER_MAIN_PANEL);
             } else {
-                showScreen(LOGIN_PANEL);
+                showScreen(EMAIL_VERIFICATION_PANEL);
             }
         }
     }
@@ -533,5 +575,19 @@ public class MainFrame extends JFrame {
             JOptionPane.showMessageDialog(this, "Erro ao preparar painel de consulta de arquivos secretos: " + ex.getMessage(), "Erro", JOptionPane.ERROR_MESSAGE);
             ex.printStackTrace();
         }
+    }
+
+    public void navigateToPasswordPanel(Usuario usuario) {
+        this.usuarioEmLogin = usuario; // Armazena o usuário validado na primeira etapa
+        passwordPanel.prepareForUser(usuario);
+        showScreen(PASSWORD_PANEL);
+    }
+
+    public void navigateToTotpValidation(Usuario usuario, String senhaPlanaAutenticada) {
+        this.usuarioEmLogin = usuario;
+        this.senhaEmLogin = senhaPlanaAutenticada;
+        // Assegurar que o TotpValidationPanel está pronto para o usuário, se necessário
+        // Ex: totpValidationPanel.prepareForUser(usuario); // Se tal método existir/for necessário
+        showScreen(TOTP_VALIDATION_PANEL);
     }
 } 

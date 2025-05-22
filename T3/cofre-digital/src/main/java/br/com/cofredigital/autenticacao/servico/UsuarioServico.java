@@ -213,45 +213,78 @@ public class UsuarioServico {
         }
     }
 
-    public Optional<String> autenticarComTecladoVirtual(String email, List<Character[]> sequenciaPares) throws Exception {
-        // // registroServico.registrarEventoDoUsuario(LogEventosMIDs.AUTH_ETAPA2_INICIADA, null, "email", email); // UID será adicionado depois se o usuário for encontrado
+    public Usuario validarIdentificacaoUsuario(String email) throws UsuarioNaoEncontradoException, IllegalStateException {
+        // // registroServico.registrarEventoDoUsuario(LogEventosMIDs.AUTH_ETAPA1_INICIADA, null, "email_tentativa", email); // UID será adicionado depois se o usuário for encontrado
 
-        if (email == null || email.trim().isEmpty() || sequenciaPares == null || sequenciaPares.isEmpty()) {
-            // Log de dados de entrada inválidos poderia ser adicionado se necessário
-            // // registroServico.registrarEventoDoUsuario(LogEventosMIDs.AUTH_ETAPA2_ENCERRADA, null, "email", email, "resultado", "entrada_invalida");
-            return Optional.empty();
+        if (email == null || email.trim().isEmpty()) {
+            // // registroServico.registrarEventoDoUsuario(LogEventosMIDs.AUTH_ETAPA1_ENCERRADA, null, "email_tentativa", email, "resultado", "entrada_invalida");
+            throw new IllegalArgumentException("Email não pode ser vazio.");
         }
 
-        Usuario usuario = buscarPorEmail(email); 
-        if (usuario == null) {
-            // // registroServico.registrarEventoDoUsuario(LogEventosMIDs.AUTH_LOGIN_NAO_IDENTIFICADO, null, "email_tentativa", email);
-            // // registroServico.registrarEventoDoUsuario(LogEventosMIDs.AUTH_ETAPA2_ENCERRADA, null, "email", email, "resultado", "usuario_nao_encontrado");
-             return Optional.empty(); 
+        Usuario usuario;
+        try {
+            usuario = usuarioDAO.buscarPorEmail(email)
+                .orElseThrow(() -> {
+                    // // registroServico.registrarEventoDoUsuario(LogEventosMIDs.AUTH_LOGIN_NAO_IDENTIFICADO, null, "email_tentativa", email);
+                    // // registroServico.registrarEventoDoUsuario(LogEventosMIDs.AUTH_ETAPA1_ENCERRADA, null, "email_tentativa", email, "resultado", "usuario_nao_encontrado");
+                    return new UsuarioNaoEncontradoException("Usuário não encontrado para o email: " + email);
+                });
+        } catch (SQLException e) {
+            // // registroServico.registrarEventoDoUsuario(LogEventosMIDs.AUTH_ETAPA1_ENCERRADA, null, "email_tentativa", email, "resultado", "erro_bd", "detalhe", e.getMessage());
+            throw new RuntimeException("Erro de banco de dados ao buscar usuário por email: " + email, e);
         }
         
-        // Agora que temos o usuário, podemos usar seu UID nos logs subsequentes desta transação
-        Long uidUsuario = usuario.getId();
+        Long uidUsuario = usuario.getId(); // UID disponível para logs subsequentes
 
         if (usuario.isAcessoBloqueado()) {
             // // registroServico.registrarEventoDoUsuario(LogEventosMIDs.AUTH_LOGIN_BLOQUEADO, uidUsuario, "email", email, "bloqueado_ate", usuario.getBloqueadoAte().toString());
+            // // registroServico.registrarEventoDoUsuario(LogEventosMIDs.AUTH_ETAPA1_ENCERRADA, uidUsuario, "email", email, "resultado", "usuario_bloqueado");
             System.err.println("Tentativa de login para usuário bloqueado: " + email + ". Bloqueado até: " + usuario.getBloqueadoAte());
-            // // registroServico.registrarEventoDoUsuario(LogEventosMIDs.AUTH_ETAPA2_ENCERRADA, uidUsuario, "email", email, "resultado", "usuario_bloqueado");
+            throw new IllegalStateException("Acesso bloqueado para o usuário: " + email + ". Tente novamente após " + usuario.getBloqueadoAte());
+        }
+
+        if (usuario.getSenha() == null || usuario.getSenha().isEmpty()) {
+            // Este é um estado inesperado, um usuário ativo deveria ter hash de senha.
+            System.err.println("Usuário não possui hash de senha configurado: " + email);
+            // // registroServico.registrarEventoDoUsuario(LogEventosMIDs.AUTH_ETAPA1_ENCERRADA, uidUsuario, "email", email, "resultado", "erro_interno_senha_ausente");
+            throw new IllegalStateException("Configuração interna inválida para o usuário: " + email + ". Contate o administrador.");
+        }
+        
+        // // registroServico.registrarEventoDoUsuario(LogEventosMIDs.AUTH_ETAPA1_ENCERRADA, uidUsuario, "email", email, "resultado", "sucesso_identificacao");
+        return usuario; // Retorna o usuário se todas as verificações passarem
+    }
+
+    public Optional<String> autenticarComTecladoVirtual(Usuario usuario, List<Character[]> sequenciaPares) throws Exception {
+        // // registroServico.registrarEventoDoUsuario(LogEventosMIDs.AUTH_ETAPA2_INICIADA, usuario.getId(), "email", usuario.getEmail());
+
+        if (usuario == null || sequenciaPares == null || sequenciaPares.isEmpty()) {
+            // // registroServico.registrarEventoDoUsuario(LogEventosMIDs.AUTH_ETAPA2_ENCERRADA, usuario != null ? usuario.getId() : null, "email", usuario != null ? usuario.getEmail() : "N/A", "resultado", "entrada_invalida_etapa2");
+            return Optional.empty(); // Entrada inválida para a etapa de senha
+        }
+        
+        Long uidUsuario = usuario.getId();
+        String email = usuario.getEmail(); // Email já validado, usado para logs e mensagens
+
+        // A verificação de bloqueio e hash de senha já foi feita em validarIdentificacaoUsuario,
+        // mas é bom manter a checagem de bloqueio caso o estado mude entre as etapas,
+        // embora improvável no fluxo síncrono típico. Se o design garantir que não muda, pode ser omitido.
+        if (usuario.isAcessoBloqueado()) {
+            // // registroServico.registrarEventoDoUsuario(LogEventosMIDs.AUTH_LOGIN_BLOQUEADO, uidUsuario, "email", email, "bloqueado_ate", usuario.getBloqueadoAte().toString());
+            System.err.println("Usuário bloqueado detectado na Etapa 2: " + email + ". Bloqueado até: " + usuario.getBloqueadoAte());
+            // // registroServico.registrarEventoDoUsuario(LogEventosMIDs.AUTH_ETAPA2_ENCERRADA, uidUsuario, "email", email, "resultado", "usuario_bloqueado_etapa2");
             return Optional.empty(); 
         }
 
         String senhaHash = usuario.getSenha(); 
+        // Checagem de senhaHash null/empty já feita em validarIdentificacaoUsuario, mas por segurança:
         if (senhaHash == null || senhaHash.isEmpty()) {
-            // Este é um estado inesperado, um usuário ativo deveria ter hash de senha.
-            System.err.println("Usuário não possui hash de senha configurado: " + email);
-            // Poderia ter um MID específico para "ERRO_INTERNO_SENHA_NAO_CONFIGURADA"
-            // // registroServico.registrarEventoDoUsuario(LogEventosMIDs.AUTH_ETAPA2_ENCERRADA, uidUsuario, "email", email, "resultado", "erro_interno_senha_ausente");
+            System.err.println("Usuário sem hash de senha na Etapa 2: " + email);
+            // // registroServico.registrarEventoDoUsuario(LogEventosMIDs.AUTH_ETAPA2_ENCERRADA, uidUsuario, "email", email, "resultado", "erro_interno_senha_ausente_etapa2");
             return Optional.empty(); 
         }
 
         if (sequenciaPares.size() < 8 || sequenciaPares.size() > 10) { 
-            // Log de tentativa com comprimento de senha inválido
              System.err.println("Tentativa de login com comprimento de senha inválido: " + sequenciaPares.size() + " para usuário " + email);
-            // Poderia ter um MID para "AUTH_SENHA_COMPRIMENTO_INVALIDO"
             // // registroServico.registrarEventoDoUsuario(LogEventosMIDs.AUTH_ETAPA2_ENCERRADA, uidUsuario, "email", email, "resultado", "senha_comprimento_invalido");
              return Optional.empty();
         }
