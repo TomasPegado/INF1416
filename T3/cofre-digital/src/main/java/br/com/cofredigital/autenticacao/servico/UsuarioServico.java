@@ -53,6 +53,7 @@ public class UsuarioServico {
     private final RegistroServico registroServico;
     private static final int MAX_TENTATIVAS_SENHA = 3; // Exemplo, ajuste conforme necessário
     private static final int MINUTOS_BLOQUEIO_SENHA = 2; // Exemplo
+    private static final int MAX_TENTATIVAS_TOTP = 3;
 
     private String adminPassphraseSession = null;
 
@@ -172,7 +173,8 @@ public class UsuarioServico {
         // Similar a bloquearUsuario, adminUid poderia ser um parâmetro.
         try {
             Usuario usuario = buscarPorId(id); // Lança exceção se não encontrado
-            usuario.desbloquearAcesso();
+            usuario.desbloquearAcesso(); // Limpa o timestamp de bloqueio
+            usuario.resetarTodosOsContadoresDeFalha(); // Admin unlock reseta todos os contadores
             atualizar(usuario); // Persiste a alteração. O método atualizar() já tem seus próprios logs.
             // // registroServico.registrarEventoDoUsuario(LogEventosMIDs.USUARIO_DESBLOQUEIO_MANUAL_ACIONADO, id, "uid_desbloqueado", String.valueOf(id));
         } catch (UsuarioNaoEncontradoException e) {
@@ -292,9 +294,11 @@ public class UsuarioServico {
         String senhaAutenticada = verificarCombinacoesDePares(new StringBuilder(), sequenciaPares, 0, senhaHash);
 
         if (senhaAutenticada != null) {
-            usuario.resetarContadoresDeFalha();
+            usuario.resetarContadorFalhaSenha();
+            if(usuario.isAcessoBloqueado()) {
+                usuario.desbloquearAcesso(); 
+            }
             usuario.incrementarTotalAcessos(); 
-            if(usuario.isAcessoBloqueado()) usuario.desbloquearAcesso(); 
             atualizar(usuario); 
             // Log de sucesso de login
             registroServico.registrarEventoDoUsuario(LogEventosMIDs.AUTH_SENHA_OK, uidUsuario, "email", email);
@@ -907,6 +911,39 @@ public class UsuarioServico {
         // // );
         System.out.println("[UsuarioServico] Usuário " + usuarioSalvo.getEmail() + " cadastrado com sucesso. UID: " + usuarioSalvo.getId() + ". Chave TOTP (plana - para debug): " + chaveSecretaTotpBase32);
         return new CadastroUsuarioResult(usuarioSalvo, chaveSecretaTotpBase32);
+    }
+
+    public boolean processarTentativaTotp(Usuario usuario, String codigoTotpEntrada, String chaveSecretaTotpPlana) throws Exception {
+        if (usuario == null || StringUtil.isAnyEmpty(codigoTotpEntrada, chaveSecretaTotpPlana)) {
+            // // registroServico.registrarEventoDoUsuario(LogEventosMIDs.AUTH_ETAPA3_DADOS_INVALIDOS_SERVICO, usuario != null ? usuario.getId() : null, "motivo", "Entrada nula/vazia para processarTentativaTotp");
+            throw new IllegalArgumentException("Usuário, código TOTP e chave secreta não podem ser nulos/vazios.");
+        }
+
+        Long uid = usuario.getId();
+        String email = usuario.getEmail();
+        // // registroServico.registrarEventoDoUsuario(LogEventosMIDs.AUTH_ETAPA3_VALIDACAO_INICIO_SERVICO, uid, "email", email);
+
+        boolean codigoValido = totpServico.validarCodigo(chaveSecretaTotpPlana, codigoTotpEntrada);
+
+        if (codigoValido) {
+            // // registroServico.registrarEventoDoUsuario(LogEventosMIDs.AUTH_ETAPA3_VALIDACAO_SUCESSO_SERVICO, uid, "email", email);
+            usuario.resetarTodosOsContadoresDeFalha(); // Login TOTP bem-sucedido reseta TODOS os contadores
+            usuario.setUltimoAcesso(LocalDateTime.now()); // Atualiza último acesso no sucesso do login completo
+            atualizar(usuario); // Salva o reset do contador e último acesso
+            return true;
+        } else {
+            // // registroServico.registrarEventoDoUsuario(LogEventosMIDs.AUTH_ETAPA3_CODIGO_INVALIDO_SERVICO, uid, "email", email);
+            usuario.registrarFalhaToken(); // Usa o contador de falhas de token existente
+            int tentativasTotp = usuario.getTentativasFalhasToken();
+
+            if (tentativasTotp >= MAX_TENTATIVAS_TOTP) {
+                // // registroServico.registrarEventoDoUsuario(LogEventosMIDs.AUTH_ETAPA3_BLOQUEIO_POR_TOTP_SERVICO, uid, "email", email, "tentativas_totp", String.valueOf(tentativasTotp));
+                usuario.bloquearAcessoPorMinutos(MINUTOS_BLOQUEIO_SENHA); // Reutiliza a constante de tempo de bloqueio
+                // // registroServico.registrarEventoDoUsuario(LogEventosMIDs.AUTH_LOGIN_BLOQUEADO, uid, "email", email, "motivo", "excesso_tentativas_totp", "minutos_bloqueio", String.valueOf(MINUTOS_BLOQUEIO_SENHA));
+            }
+            atualizar(usuario); // Salva o incremento da falha e possível bloqueio
+            return false;
+        }
     }
 
     public TotpServico getTotpServico() {

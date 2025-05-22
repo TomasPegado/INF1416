@@ -156,58 +156,18 @@ public class MainFrame extends JFrame {
         qrCodePanel.setName(TOTP_QRCODE_PANEL);
 
         // Painel de validação TOTP - passar registroServico
-        TotpValidationPanel totpValidationPanel = new TotpValidationPanel(registroServico) {
+        TotpValidationPanel totpValidationPanel = new TotpValidationPanel(this, usuarioServico, registroServico) {
+            /* // Old onTotpValidated and onBack logic is now internal to TotpValidationPanel
             @Override
             protected void onTotpValidated() {
-                String codigo = getCodigoTotp();
-                if (MainFrame.this.usuarioEmLogin == null) {
-                    setStatus("Erro interno: Usuário não definido para validação TOTP.");
-                    // Log de erro interno na GUI
-                    // MainFrame.this.registroServico.registrarEventoDoSistema(MID_ERRO_INTERNO_TOTP_USUARIO_NULLO, "origem", "MainFrame.onTotpValidated");
-                    return;
-                }
-                if (MainFrame.this.senhaEmLogin == null) {
-                    setStatus("Erro interno: Senha original não disponível para descriptografar TOTP.");
-                    return;
-                }
-                try {
-                    String chaveSecreta = usuarioServico.obterChaveTotpDescriptografada(MainFrame.this.usuarioEmLogin, MainFrame.this.senhaEmLogin);
-                    boolean valido = totpServico.validarCodigo(chaveSecreta, codigo);
-                    if (valido) {
-                        setStatus("TOTP válido! Login completo.");
-                        MainFrame.this.registroServico.registrarEventoDoUsuario(LogEventosMIDs.AUTH_ETAPA3_VALIDACAO_SUCESSO_GUI, MainFrame.this.usuarioEmLogin.getId(), "email_usuario", MainFrame.this.usuarioEmLogin.getEmail(), "grupo_usuario", MainFrame.this.usuarioEmLogin.getGrupo());
-
-                        if ("Administrador".equalsIgnoreCase(MainFrame.this.usuarioEmLogin.getGrupo())) {
-                            adminMainPanel.setAdminLogado(MainFrame.this.usuarioEmLogin);
-                            showScreen(ADMIN_MAIN_PANEL);
-                        } else {
-                            userMainPanel.preparePanel(MainFrame.this.usuarioEmLogin);
-                            showScreen(USER_MAIN_PANEL);
-                        }
-                        // TODO: Navegar para a tela principal da aplicação pós-login
-                        // JOptionPane.showMessageDialog(MainFrame.this, "Login totalmente concluído!");
-                        // showScreen(MAIN_APP_PANEL); // Exemplo
-                    } else {
-                        setStatus("Código TOTP inválido.");
-                        MainFrame.this.registroServico.registrarEventoDoUsuario(LogEventosMIDs.AUTH_ETAPA3_CODIGO_INVALIDO_GUI, MainFrame.this.usuarioEmLogin.getId(), "email_usuario", MainFrame.this.usuarioEmLogin.getEmail(), "grupo_usuario", MainFrame.this.usuarioEmLogin.getGrupo());
-                        // TODO: Implementar lógica de tentativas de TOTP e bloqueio se necessário
-                    }
-                } catch (Exception ex) {
-                    setStatus("Erro ao validar TOTP: " + ex.getMessage());
-                    ex.printStackTrace();
-                } finally {
-                    MainFrame.this.senhaEmLogin = null;
-                }
-            }
-
-            @Override
+// ... existing code ...
             protected void onBack() {
                 // Log de voltar já está no painel
                 MainFrame.this.usuarioEmLogin = null;
                 MainFrame.this.senhaEmLogin = null;
-                showScreen(EMAIL_VERIFICATION_PANEL);
-                 // Ao voltar para o LoginPanel, o MainFrame já loga AUTH_ETAPA1_INICIADA quando o LoginPanel é mostrado.
+                showScreen(EMAIL_VERIFICATION_PANEL); 
             }
+            */
         };
         totpValidationPanel.setName(TOTP_VALIDATION_PANEL);
 
@@ -317,10 +277,11 @@ public class MainFrame extends JFrame {
                 if (tvp != null) {
                     tvp.resetFields();
                     if (usuarioEmLogin != null) {
-                        tvp.setCurrentUserEmailForLog(usuarioEmLogin.getEmail());
-                        registroServico.registrarEventoDoUsuario(LogEventosMIDs.AUTH_ETAPA3_TELA_APRESENTADA_GUI, usuarioEmLogin.getId(), "email_usuario", usuarioEmLogin.getEmail(), "grupo_usuario", usuarioEmLogin.getGrupo());
+                        // tvp.setCurrentUserEmailForLog(usuarioEmLogin.getEmail()); // Removed, panel gets user object
+                        // Log de apresentação da tela TOTP (já deve estar sendo feito ou pode ser adicionado aqui)
+                        // // registroServico.registrarEventoDoUsuario(LogEventosMIDs.AUTH_ETAPA3_TELA_APRESENTADA_GUI, usuarioEmLogin.getId(), "email_usuario", usuarioEmLogin.getEmail(), "grupo_usuario", usuarioEmLogin.getGrupo());
                     } else {
-                        registroServico.registrarEventoDoSistema(LogEventosMIDs.AUTH_ETAPA3_TELA_APRESENTADA_GUI, "erro", "usuario_contexto_ausente_para_log_tela_totp");
+                        // // registroServico.registrarEventoDoSistema(LogEventosMIDs.AUTH_ETAPA3_TELA_APRESENTADA_GUI, "erro", "usuario_contexto_ausente_para_log_tela_totp");
                     }
                 }
             } else if (SETUP_ADMIN_PANEL.equals(panelName)) {
@@ -586,8 +547,28 @@ public class MainFrame extends JFrame {
     public void navigateToTotpValidation(Usuario usuario, String senhaPlanaAutenticada) {
         this.usuarioEmLogin = usuario;
         this.senhaEmLogin = senhaPlanaAutenticada;
-        // Assegurar que o TotpValidationPanel está pronto para o usuário, se necessário
-        // Ex: totpValidationPanel.prepareForUser(usuario); // Se tal método existir/for necessário
+        TotpValidationPanel tvp = (TotpValidationPanel) getPanelByName(TOTP_VALIDATION_PANEL);
+        if (tvp != null) {
+            tvp.prepareForValidation(usuario, senhaPlanaAutenticada);
+        }
         showScreen(TOTP_VALIDATION_PANEL);
+    }
+
+    // Getter para AdminMainPanel
+    public AdminMainPanel getAdminMainPanel() {
+        return this.adminMainPanel;
+    }
+
+    // Getter para UserMainPanel
+    public UserMainPanel getUserMainPanel() {
+        return this.userMainPanel;
+    }
+
+    // Método para limpar dados sensíveis de login
+    public void clearSensitiveLoginData() {
+        this.usuarioEmLogin = null;
+        this.senhaEmLogin = null;
+        // // registroServico.registrarEventoDoSistema(LogEventosMIDs.AUTH_DADOS_SESSAO_LIMPOS_GUI, "motivo", "Retorno da tela TOTP ou logout explícito");
+        System.out.println("[MainFrame] Dados sensíveis da sessão de login (usuário/senha plana) foram limpos.");
     }
 } 

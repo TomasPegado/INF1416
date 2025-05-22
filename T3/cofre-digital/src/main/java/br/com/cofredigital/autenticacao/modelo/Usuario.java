@@ -47,8 +47,16 @@ public class Usuario {
         this.tentativasFalhasToken++;
     }
 
-    public void resetarContadoresDeFalha() {
+    public void resetarTodosOsContadoresDeFalha() {
         this.tentativasFalhasSenha = 0;
+        this.tentativasFalhasToken = 0;
+    }
+
+    public void resetarContadorFalhaSenha() {
+        this.tentativasFalhasSenha = 0;
+    }
+
+    public void resetarContadorFalhaToken() {
         this.tentativasFalhasToken = 0;
     }
 
@@ -58,7 +66,6 @@ public class Usuario {
 
     public void desbloquearAcesso() {
         this.bloqueadoAte = null;
-        resetarContadoresDeFalha();
     }
     
     public void incrementarTotalAcessos() {
