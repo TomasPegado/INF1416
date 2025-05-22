@@ -233,6 +233,67 @@ public class ConsultarArquivosSecretosPanel extends JPanel {
         JScrollPane scrollTabela = new JScrollPane(tabelaArquivos);
         body2Panel.add(scrollTabela);
 
+        // Listener de seleção de linha para decriptar arquivo secreto
+        tabelaArquivos.getSelectionModel().addListSelectionListener(e -> {
+            if (e.getValueIsAdjusting()) return;
+            int selectedRow = tabelaArquivos.getSelectedRow();
+            if (selectedRow == -1) return;
+            String nomeCodigo = (String) tabelaModel.getValueAt(selectedRow, 0);
+            String nomeArquivo = (String) tabelaModel.getValueAt(selectedRow, 1);
+            String dono = (String) tabelaModel.getValueAt(selectedRow, 2);
+            String grupo = (String) tabelaModel.getValueAt(selectedRow, 3);
+            String loginUsuario = usuarioLogado.getEmail();
+            Long uid = (usuarioLogado != null && usuarioLogado.getId() != null) ? usuarioLogado.getId() : null;
+            String caminhoPasta = getCaminhoPasta();
+            if (!dono.equalsIgnoreCase(loginUsuario)) {
+                JOptionPane.showMessageDialog(this, "Você não tem permissão para acessar este arquivo (não é o dono).", "Acesso negado", JOptionPane.WARNING_MESSAGE);
+                registrarLogFalha(7012, uid, "Acesso negado ao arquivo '" + nomeArquivo + "' (código: " + nomeCodigo + ") para " + loginUsuario);
+                return;
+            }
+            try {
+                // Buscar chaveiro do usuário logado
+                java.util.List<br.com.cofredigital.persistencia.modelo.Chaveiro> chaveiros = usuarioServico.listarChaveirosPorUid(usuarioLogado.getId());
+                if (chaveiros.isEmpty()) {
+                    JOptionPane.showMessageDialog(this, "Chaveiro do usuário logado não encontrado.", "Erro", JOptionPane.ERROR_MESSAGE);
+                    registrarLogFalha(7015, uid, "Chaveiro do usuário logado não encontrado para arquivo '" + nomeArquivo + "' (código: " + nomeCodigo + ")");
+                    return;
+                }
+                br.com.cofredigital.persistencia.modelo.Chaveiro chaveiroUsuario = chaveiros.get(0); // Assume o primeiro como padrão
+                // Carregar chave privada do usuário logado
+                String fraseSecretaUsuario = getFraseSecreta();
+                java.security.PrivateKey chavePrivadaUsuario = br.com.cofredigital.crypto.PrivateKeyUtil.loadEncryptedPKCS8PrivateKeyFromDERBytes(
+                    chaveiroUsuario.getChavePrivadaCriptografada(), fraseSecretaUsuario
+                );
+                // Carregar certificado do dono (para assinatura)
+                java.security.cert.X509Certificate certificadoDono = br.com.cofredigital.crypto.CertificateUtil.loadCertificateFromPEMString(chaveiroUsuario.getCertificadoPem());
+                java.security.PublicKey chavePublicaDono = certificadoDono.getPublicKey();
+                // Ler arquivos do arquivo secreto
+                String basePath = caminhoPasta;
+                String prefix = basePath + "/" + nomeCodigo;
+                byte[] envBytes = br.com.cofredigital.util.ArquivoProtegidoUtil.lerArquivo(prefix + ".env");
+                byte[] encBytes = br.com.cofredigital.util.ArquivoProtegidoUtil.lerArquivo(prefix + ".enc");
+                byte[] asdBytes = br.com.cofredigital.util.ArquivoProtegidoUtil.lerArquivo(prefix + ".asd");
+                // Decriptar envelope digital (usa chave privada do usuário logado)
+                byte[] semente = br.com.cofredigital.util.ArquivoProtegidoUtil.decriptarEnvelope(envBytes, chavePrivadaUsuario);
+                javax.crypto.SecretKey chaveAES = br.com.cofredigital.util.ArquivoProtegidoUtil.gerarChaveAES(semente);
+                byte[] conteudoDecriptado = br.com.cofredigital.util.ArquivoProtegidoUtil.decriptarArquivoAES(encBytes, chaveAES);
+                // Verificar assinatura digital
+                boolean assinaturaOk = br.com.cofredigital.util.ArquivoProtegidoUtil.verificarAssinatura(conteudoDecriptado, asdBytes, chavePublicaDono);
+                if (!assinaturaOk) {
+                    JOptionPane.showMessageDialog(this, "Assinatura digital do arquivo inválida! Arquivo pode ter sido adulterado.", "Erro de integridade", JOptionPane.ERROR_MESSAGE);
+                    registrarLogFalha(7016, uid, "Falha na verificação de integridade/autenticidade do arquivo '" + nomeArquivo + "' (código: " + nomeCodigo + ")");
+                    return;
+                }
+                // Salvar arquivo decriptado
+                java.nio.file.Files.write(java.nio.file.Paths.get(basePath, nomeArquivo), conteudoDecriptado);
+                JOptionPane.showMessageDialog(this, "Arquivo decriptado com sucesso e salvo como '" + nomeArquivo + "'!", "Sucesso", JOptionPane.INFORMATION_MESSAGE);
+                registrarLogSucesso(7013, uid, "Arquivo '" + nomeArquivo + "' decriptado com sucesso (código: " + nomeCodigo + ")");
+            } catch (Exception ex) {
+                JOptionPane.showMessageDialog(this, "Erro ao decriptar arquivo secreto: " + ex.getMessage(), "Erro", JOptionPane.ERROR_MESSAGE);
+                registrarLogFalha(7015, uid, "Erro ao decriptar arquivo '" + nomeArquivo + "' (código: " + nomeCodigo + "): " + ex.getMessage());
+            }
+        });
+
         btnVoltar = new JButton("Voltar");
         JPanel linhaBotaoVoltar = new JPanel(new FlowLayout(FlowLayout.RIGHT));
         linhaBotaoVoltar.add(btnVoltar);
