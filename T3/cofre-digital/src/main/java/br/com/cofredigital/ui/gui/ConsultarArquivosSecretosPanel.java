@@ -265,32 +265,81 @@ public class ConsultarArquivosSecretosPanel extends JPanel {
                     chaveiroUsuario.getChavePrivadaCriptografada(), fraseSecretaUsuario
                 );
                 // Carregar certificado do dono (para assinatura)
-                java.security.cert.X509Certificate certificadoDono = br.com.cofredigital.crypto.CertificateUtil.loadCertificateFromPEMString(chaveiroUsuario.getCertificadoPem());
-                java.security.PublicKey chavePublicaDono = certificadoDono.getPublicKey();
+                java.security.cert.X509Certificate certificadoDono = null;
+                java.security.PublicKey chavePublicaDono = null;
+                try {
+                    certificadoDono = br.com.cofredigital.crypto.CertificateUtil.loadCertificateFromPEMString(chaveiroUsuario.getCertificadoPem());
+                    chavePublicaDono = certificadoDono.getPublicKey();
+                } catch (Exception certEx) {
+                    JOptionPane.showMessageDialog(this, "Erro de autenticidade: não foi possível obter a chave pública do dono do arquivo. O arquivo pode não ser autêntico.\nDetalhe: " + certEx.getMessage(), "Erro de autenticidade", JOptionPane.ERROR_MESSAGE);
+                    registrarLogFalha(7016, uid, "Erro de autenticidade ao carregar chave pública do dono para arquivo '" + nomeArquivo + "' (código: " + nomeCodigo + "): " + certEx.getMessage());
+                    return;
+                }
                 // Ler arquivos do arquivo secreto
                 String basePath = caminhoPasta;
                 String prefix = basePath + "/" + nomeCodigo;
-                byte[] envBytes = br.com.cofredigital.util.ArquivoProtegidoUtil.lerArquivo(prefix + ".env");
-                byte[] encBytes = br.com.cofredigital.util.ArquivoProtegidoUtil.lerArquivo(prefix + ".enc");
-                byte[] asdBytes = br.com.cofredigital.util.ArquivoProtegidoUtil.lerArquivo(prefix + ".asd");
-                // Decriptar envelope digital (usa chave privada do usuário logado)
-                byte[] semente = br.com.cofredigital.util.ArquivoProtegidoUtil.decriptarEnvelope(envBytes, chavePrivadaUsuario);
-                javax.crypto.SecretKey chaveAES = br.com.cofredigital.util.ArquivoProtegidoUtil.gerarChaveAES(semente);
-                byte[] conteudoDecriptado = br.com.cofredigital.util.ArquivoProtegidoUtil.decriptarArquivoAES(encBytes, chaveAES);
-                // Verificar assinatura digital
-                boolean assinaturaOk = br.com.cofredigital.util.ArquivoProtegidoUtil.verificarAssinatura(conteudoDecriptado, asdBytes, chavePublicaDono);
-                if (!assinaturaOk) {
-                    JOptionPane.showMessageDialog(this, "Assinatura digital do arquivo inválida! Arquivo pode ter sido adulterado.", "Erro de integridade", JOptionPane.ERROR_MESSAGE);
-                    registrarLogFalha(7016, uid, "Falha na verificação de integridade/autenticidade do arquivo '" + nomeArquivo + "' (código: " + nomeCodigo + ")");
+                byte[] envBytes = null;
+                byte[] encBytes = null;
+                byte[] asdBytes = null;
+                try {
+                    envBytes = br.com.cofredigital.util.ArquivoProtegidoUtil.lerArquivo(prefix + ".env");
+                    encBytes = br.com.cofredigital.util.ArquivoProtegidoUtil.lerArquivo(prefix + ".enc");
+                    asdBytes = br.com.cofredigital.util.ArquivoProtegidoUtil.lerArquivo(prefix + ".asd");
+                } catch (Exception fileEx) {
+                    JOptionPane.showMessageDialog(this, "Erro ao ler arquivos secretos: " + fileEx.getMessage(), "Erro de leitura", JOptionPane.ERROR_MESSAGE);
+                    registrarLogFalha(7015, uid, "Erro ao ler arquivos secretos para '" + nomeArquivo + "' (código: " + nomeCodigo + "): " + fileEx.getMessage());
                     return;
                 }
-                // Salvar arquivo decriptado
-                java.nio.file.Files.write(java.nio.file.Paths.get(basePath, nomeArquivo), conteudoDecriptado);
+                byte[] semente = null;
+                try {
+                    semente = br.com.cofredigital.util.ArquivoProtegidoUtil.decriptarEnvelope(envBytes, chavePrivadaUsuario);
+                } catch (Exception exEnv) {
+                    JOptionPane.showMessageDialog(this, "Erro de sigilo: falha ao decriptar o envelope do arquivo. Verifique se a chave privada está correta.\nDetalhe: " + exEnv.getMessage(), "Erro de sigilo", JOptionPane.ERROR_MESSAGE);
+                    registrarLogFalha(7015, uid, "Erro ao decriptar envelope do arquivo '" + nomeArquivo + "' (código: " + nomeCodigo + "): " + exEnv.getMessage());
+                    return;
+                }
+                javax.crypto.SecretKey chaveAES = null;
+                try {
+                    chaveAES = br.com.cofredigital.util.ArquivoProtegidoUtil.gerarChaveAES(semente);
+                } catch (Exception exAesKey) {
+                    JOptionPane.showMessageDialog(this, "Erro ao gerar chave AES: " + exAesKey.getMessage(), "Erro de chave AES", JOptionPane.ERROR_MESSAGE);
+                    registrarLogFalha(7015, uid, "Erro ao gerar chave AES para arquivo '" + nomeArquivo + "' (código: " + nomeCodigo + "): " + exAesKey.getMessage());
+                    return;
+                }
+                byte[] conteudoDecriptado = null;
+                try {
+                    conteudoDecriptado = br.com.cofredigital.util.ArquivoProtegidoUtil.decriptarArquivoAES(encBytes, chaveAES);
+                } catch (Exception exAes) {
+                    JOptionPane.showMessageDialog(this, "Erro de sigilo: falha ao decriptar o conteúdo do arquivo. Verifique se a chave está correta.\nDetalhe: " + exAes.getMessage(), "Erro de sigilo", JOptionPane.ERROR_MESSAGE);
+                    registrarLogFalha(7015, uid, "Erro ao decriptar conteúdo do arquivo '" + nomeArquivo + "' (código: " + nomeCodigo + "): " + exAes.getMessage());
+                    return;
+                }
+                boolean assinaturaOk = false;
+                try {
+                    assinaturaOk = br.com.cofredigital.util.ArquivoProtegidoUtil.verificarAssinatura(conteudoDecriptado, asdBytes, chavePublicaDono);
+                } catch (Exception sigEx) {
+                    JOptionPane.showMessageDialog(this, "Erro de autenticidade: falha ao verificar a assinatura digital. O arquivo pode não ser autêntico.\nDetalhe: " + sigEx.getMessage(), "Erro de autenticidade", JOptionPane.ERROR_MESSAGE);
+                    registrarLogFalha(7016, uid, "Erro de autenticidade ao verificar assinatura digital do arquivo '" + nomeArquivo + "' (código: " + nomeCodigo + "): " + sigEx.getMessage());
+                    return;
+                }
+                if (!assinaturaOk) {
+                    JOptionPane.showMessageDialog(this, "Erro de integridade: o conteúdo do arquivo foi alterado ou corrompido. Assinatura digital inválida.", "Erro de integridade", JOptionPane.ERROR_MESSAGE);
+                    registrarLogFalha(7016, uid, "Falha na verificação de integridade do arquivo '" + nomeArquivo + "' (código: " + nomeCodigo + ")");
+                    return;
+                }
+                try {
+                    java.nio.file.Files.write(java.nio.file.Paths.get(basePath, nomeArquivo), conteudoDecriptado);
+                } catch (Exception writeEx) {
+                    JOptionPane.showMessageDialog(this, "Erro ao salvar arquivo decriptado: " + writeEx.getMessage(), "Erro ao salvar", JOptionPane.ERROR_MESSAGE);
+                    registrarLogFalha(7015, uid, "Erro ao salvar arquivo decriptado '" + nomeArquivo + "' (código: " + nomeCodigo + "): " + writeEx.getMessage());
+                    return;
+                }
                 JOptionPane.showMessageDialog(this, "Arquivo decriptado com sucesso e salvo como '" + nomeArquivo + "'!", "Sucesso", JOptionPane.INFORMATION_MESSAGE);
                 registrarLogSucesso(7013, uid, "Arquivo '" + nomeArquivo + "' decriptado com sucesso (código: " + nomeCodigo + ")");
             } catch (Exception ex) {
-                JOptionPane.showMessageDialog(this, "Erro ao decriptar arquivo secreto: " + ex.getMessage(), "Erro", JOptionPane.ERROR_MESSAGE);
-                registrarLogFalha(7015, uid, "Erro ao decriptar arquivo '" + nomeArquivo + "' (código: " + nomeCodigo + "): " + ex.getMessage());
+                ex.printStackTrace();
+                JOptionPane.showMessageDialog(this, "Erro inesperado ao decriptar arquivo secreto: " + ex.getMessage(), "Erro inesperado", JOptionPane.ERROR_MESSAGE);
+                registrarLogFalha(7015, uid, "Erro inesperado ao decriptar arquivo '" + nomeArquivo + "' (código: " + nomeCodigo + "): " + ex.getMessage());
             }
         });
 
