@@ -367,6 +367,12 @@ public class ConsultarArquivosSecretosPanel extends JPanel {
                 boolean assinaturaOk = false;
                 try {
                     assinaturaOk = br.com.cofredigital.util.ArquivoProtegidoUtil.verificarAssinatura(conteudoDecriptado, asdBytes, chavePublicaDono);
+                    if (assinaturaOk) {
+                        Map<String, String> detalhesVerificado = new HashMap<>();
+                        detalhesVerificado.put("login_name", usuarioLogado.getEmail());
+                        detalhesVerificado.put("arq_name", nomeArquivo);
+                        registroServico.registrarEventoDoUsuario(LogEventosMIDs.CONSULTA_ARQUIVO_VERIFICADO_OK, uid, detalhesVerificado);
+                    }
                 } catch (Exception sigEx) {
                     JOptionPane.showMessageDialog(this, "Erro de autenticidade: falha ao verificar a assinatura digital. O arquivo pode não ser autêntico.\nDetalhe: " + sigEx.getMessage(), "Erro de autenticidade", JOptionPane.ERROR_MESSAGE);
                     Map<String, String> detalhes = new HashMap<>();
@@ -384,6 +390,7 @@ public class ConsultarArquivosSecretosPanel extends JPanel {
                     registroServico.registrarEventoDoUsuario(LogEventosMIDs.CONSULTA_ARQUIVO_VERIFICACAO_FALHA, uid, detalhes);
                     return;
                 }
+                
                 try {
                     java.nio.file.Files.write(java.nio.file.Paths.get(basePath, nomeArquivo), conteudoDecriptado);
                 } catch (Exception writeEx) {
