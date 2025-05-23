@@ -54,18 +54,18 @@ public class TotpValidationPanel extends JPanel {
             // Log da tentativa de validação do TOTP pela GUI
             Long uidParaLog = (usuarioCorrenteParaTotp != null) ? usuarioCorrenteParaTotp.getId() : null;
             String emailParaLog = (usuarioCorrenteParaTotp != null) ? usuarioCorrenteParaTotp.getEmail() : "N/A";
-            // // registroServico.registrarEventoDoUsuario(LogEventosMIDs.AUTH_ETAPA3_BOTAO_VALIDAR_PRESSIONADO_GUI, uidParaLog, "email_usuario", emailParaLog, "codigo_tentativa", codigoInput);
+            
 
             if (codigoInput.isEmpty() || !codigoInput.matches("\\d{6}")) {
                 setStatus("Código TOTP deve ter 6 dígitos numéricos.");
-                // // registroServico.registrarEventoDoUsuario(LogEventosMIDs.AUTH_ETAPA3_CODIGO_INVALIDO_FORMATO_GUI, uidParaLog, "email_usuario", emailParaLog, "codigo_fornecido", codigoInput);
+                
                 codigoField.requestFocusInWindow();
                 return;
             }
 
             if (usuarioCorrenteParaTotp == null || senhaOriginalParaTotp == null) {
                 setStatus("Erro interno: Informações do usuário ou senha original ausentes.");
-                // // registroServico.registrarEventoDoSistema(LogEventosMIDs.AUTH_ETAPA3_ERRO_INTERNO_GUI, "motivo", "usuarioCorrente ou senhaOriginal nulos no painel TOTP");
+                
                 return;
             }
 
@@ -93,8 +93,9 @@ public class TotpValidationPanel extends JPanel {
                 if (totpValido) {
                     statusLabel.setForeground(new Color(0,128,0));
                     setStatus("TOTP válido! Login completo.");
-                    // // registroServico.registrarEventoDoUsuario(LogEventosMIDs.AUTH_ETAPA3_VALIDACAO_SUCESSO_GUI, uidParaLog, "email_usuario", emailParaLog, "grupo_usuario", usuarioCorrenteParaTotp.getGrupo());
-                    
+                    registroServico.registrarEventoDoUsuario(LogEventosMIDs.AUTH_TOKEN_OK, uidParaLog, "email_usuario", emailParaLog, "grupo_usuario", usuarioCorrenteParaTotp.getGrupo());
+                    registroServico.registrarEventoDoUsuario(LogEventosMIDs.AUTH_ETAPA3_ENCERRADA, uidParaLog, "email_usuario", emailParaLog, "grupo_usuario", usuarioCorrenteParaTotp.getGrupo());
+                    registroServico.registrarEventoDoUsuario(LogEventosMIDs.TELA_PRINCIPAL_APRESENTADA, uidParaLog, "email_usuario", emailParaLog, "grupo_usuario", usuarioCorrenteParaTotp.getGrupo());
                     // Navegar para a tela principal da aplicação
                     if ("Administrador".equalsIgnoreCase(usuarioCorrenteParaTotp.getGrupo())) {
                         mainFrame.getAdminMainPanel().setAdminLogado(usuarioCorrenteParaTotp); // Assumindo getter em MainFrame
@@ -123,10 +124,19 @@ public class TotpValidationPanel extends JPanel {
                             mensagemBloqueio,
                             "Acesso Bloqueado",
                             JOptionPane.WARNING_MESSAGE);
+                            registroServico.registrarEventoDoUsuario(LogEventosMIDs.AUTH_TOKEN_ERRO3, uidParaLog, "email_usuario", emailParaLog, "grupo_usuario", usuarioCorrenteParaTotp.getGrupo());
+                            registroServico.registrarEventoDoUsuario(LogEventosMIDs.AUTH_ACESSO_BLOQUEADO_ETAPA3, uidParaLog, "email_usuario", emailParaLog, "grupo_usuario", usuarioCorrenteParaTotp.getGrupo());
                         mainFrame.showScreen(MainFrame.EMAIL_VERIFICATION_PANEL);
                         resetPanelState();
                     } else {
                         int tentativasFeitas = usuarioCorrenteParaTotp.getTentativasFalhasToken();
+                        if (tentativasFeitas == 1) {
+                            registroServico.registrarEventoDoUsuario(LogEventosMIDs.AUTH_TOKEN_ERRO1, uidParaLog, "email_usuario", emailParaLog, "grupo_usuario", usuarioCorrenteParaTotp.getGrupo());
+                        } else if (tentativasFeitas == 2) {
+                            registroServico.registrarEventoDoUsuario(LogEventosMIDs.AUTH_TOKEN_ERRO2, uidParaLog, "email_usuario", emailParaLog, "grupo_usuario", usuarioCorrenteParaTotp.getGrupo());
+                        } else if (tentativasFeitas == 3) {
+                            registroServico.registrarEventoDoUsuario(LogEventosMIDs.AUTH_TOKEN_ERRO3, uidParaLog, "email_usuario", emailParaLog, "grupo_usuario", usuarioCorrenteParaTotp.getGrupo());
+                        }
                         int tentativasRestantes = MAX_TENTATIVAS_TOTP_PERMITIDAS - tentativasFeitas;
                         setStatus("Código TOTP inválido. Tentativas restantes: " + Math.max(0, tentativasRestantes));
                         codigoField.setText(""); // Limpa para nova tentativa

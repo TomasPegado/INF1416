@@ -475,7 +475,7 @@ public class MainFrame extends JFrame {
     public void navigateToPasswordPanel(Usuario usuario) {
         this.usuarioEmLogin = usuario; // Armazena o usuário validado na primeira etapa
         passwordPanel.prepareForUser(usuario);
-        
+
         registroServico.registrarEventoDoUsuario(LogEventosMIDs.AUTH_ETAPA2_INICIADA, usuario.getId(), "email", usuario.getEmail());
         showScreen(PASSWORD_PANEL);
     }
@@ -487,6 +487,7 @@ public class MainFrame extends JFrame {
         if (tvp != null) {
             tvp.prepareForValidation(usuario, senhaPlanaAutenticada);
         }
+        registroServico.registrarEventoDoUsuario(LogEventosMIDs.AUTH_ETAPA3_INICIADA, usuario.getId(), "email", usuario.getEmail());
         showScreen(TOTP_VALIDATION_PANEL);
     }
 
