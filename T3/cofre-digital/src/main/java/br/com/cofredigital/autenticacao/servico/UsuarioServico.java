@@ -316,10 +316,11 @@ public class UsuarioServico {
                 registroServico.registrarEventoDoUsuario(LogEventosMIDs.AUTH_SENHA_ERRO3, uidUsuario, "email", email, "tentativas", String.valueOf(tentativas));
                 usuario.bloquearAcessoPorMinutos(MINUTOS_BLOQUEIO_SENHA);
                 registroServico.registrarEventoDoUsuario(LogEventosMIDs.AUTH_LOGIN_BLOQUEADO, uidUsuario, "email", email, "minutos_bloqueio", String.valueOf(MINUTOS_BLOQUEIO_SENHA));
+                registroServico.registrarEventoDoUsuario(LogEventosMIDs.AUTH_ETAPA2_ENCERRADA, uidUsuario, "email", email, "resultado", "falha_senha");
                 System.err.println("Usuário bloqueado por " + MINUTOS_BLOQUEIO_SENHA + " minutos devido a " + tentativas + " tentativas de senha: " + email);
             }
             atualizar(usuario); 
-            registroServico.registrarEventoDoUsuario(LogEventosMIDs.AUTH_ETAPA2_ENCERRADA, uidUsuario, "email", email, "resultado", "falha_senha");
+            
             return Optional.empty();
         }
     }
