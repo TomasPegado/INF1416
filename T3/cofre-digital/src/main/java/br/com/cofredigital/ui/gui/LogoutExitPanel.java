@@ -112,13 +112,15 @@ public class LogoutExitPanel extends JPanel {
 
         // Action Listeners
         btnEncerrarSessao.addActionListener(e -> {
-            // // if (usuarioLogado != null && mainFrame.getRegistroServico() != null) {
-            // //     mainFrame.getRegistroServico().registrarEventoDoUsuario(
-            // //         LogEventosMIDs.AUTH_LOGOUT_USUARIO, 
-            // //         usuarioLogado.getId(),
-            // //         "email", usuarioLogado.getEmail()
-            // //     );
-            // // }
+            if (usuarioLogado != null && mainFrame.getRegistroServico() != null) {
+                java.util.Map<String, String> detalhes = new java.util.HashMap<>();
+                detalhes.put("login_name", usuarioLogado.getEmail());
+                mainFrame.getRegistroServico().registrarEventoDoUsuario(
+                    LogEventosMIDs.BOTAO_ENCERRAR_SESSAO,
+                    usuarioLogado.getId(),
+                    detalhes
+                );
+            }
             mainFrame.logout(); // Chama o método logout do MainFrame
         });
 
@@ -159,15 +161,15 @@ public class LogoutExitPanel extends JPanel {
             lblCorpo2GrupoValue.setText(usuario.getGrupo());
             lblCorpo2NomeValue.setText(usuario.getNome());
             lblCorpo2TotalAcessosUsuarioValue.setText(String.valueOf(usuario.getTotalAcessos()));
-            
-            // //  if (mainFrame.getRegistroServico() != null) {
-            // //      mainFrame.getRegistroServico().registrarEventoDoUsuario(
-            // //         LogEventosMIDs.TELA_SAIDA_APRESENTADA_GUI, 
-            // //         usuarioLogado.getId(),
-            // //         "email", usuarioLogado.getEmail()
-            // //     );
-            // // }
-
+            if (mainFrame.getRegistroServico() != null) {
+                java.util.Map<String, String> detalhes = new java.util.HashMap<>();
+                detalhes.put("login_name", usuario.getEmail());
+                mainFrame.getRegistroServico().registrarEventoDoUsuario(
+                    LogEventosMIDs.TELA_SAIDA_APRESENTADA,
+                    usuario.getId(),
+                    detalhes
+                );
+            }
         } else {
             String na = "N/A";
             lblHeaderLoginValue.setText(na);
