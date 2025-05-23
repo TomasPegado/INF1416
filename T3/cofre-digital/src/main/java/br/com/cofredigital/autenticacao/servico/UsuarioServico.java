@@ -126,30 +126,30 @@ public class UsuarioServico {
     public Usuario atualizar(Usuario usuario) {
         if (usuario == null || usuario.getId() == null) {
             // Log de erro interno, dados inválidos para atualização
-            // // registroServico.registrarEventoDoSistema(MID_ATUALIZAR_USUARIO_DADOS_ENTRADA_INVALIDOS);
+            
             throw new IllegalArgumentException("Dados do usuário inválidos para atualização.");
         }
         Long uid = usuario.getId();
         String emailNovo = usuario.getEmail();
-        // // registroServico.registrarEventoDoUsuario(LogEventosMIDs.USUARIO_ATUALIZAR_DADOS_INICIO, uid, "uid", String.valueOf(uid), "email_novo", emailNovo);
+        
 
         try {
             Usuario usuarioAntes = buscarPorId(uid); // Garante que o usuário existe e para pegar email antigo
             if (!usuarioAntes.getEmail().equals(emailNovo) && existsByEmail(emailNovo)) {
-                // // registroServico.registrarEventoDoUsuario(LogEventosMIDs.USUARIO_ATUALIZAR_DADOS_FALHA_EMAIL_JA_EXISTE, uid, "uid", String.valueOf(uid), "email_tentativa", emailNovo);
+                
                 throw new EmailJaExisteException("Email já cadastrado para outro usuário: " + emailNovo);
             }
             // Aqui podem ser logadas as alterações específicas, se necessário, comparando usuarioAntes e usuario.
             // Ex: if (!usuarioAntes.getNome().equals(usuario.getNome())) { // registroServico.logAlteracao(...); }
             
             usuarioDAO.atualizar(usuario);
-            // // registroServico.registrarEventoDoUsuario(LogEventosMIDs.USUARIO_ATUALIZAR_DADOS_SUCESSO, uid, "uid", String.valueOf(uid), "email_atualizado", emailNovo);
+            
             return usuario; 
         } catch (SQLException e) {
-            // // registroServico.registrarEventoDoUsuario(LogEventosMIDs.USUARIO_ATUALIZAR_DADOS_FALHA_BD, uid, "uid", String.valueOf(uid), "email_tentativa", emailNovo, "erro_sql", e.getMessage());
+            
             throw new RuntimeException("Erro de banco de dados ao atualizar usuário: " + emailNovo, e);
         } catch (UsuarioNaoEncontradoException e) { 
-            // // registroServico.registrarEventoDoSistema(LogEventosMIDs.USUARIO_ATUALIZAR_DADOS_FALHA_USUARIO_NAO_ENCONTRADO, "uid_tentativa", String.valueOf(uid));
+            
             throw e; // Relança a exceção original
         }
     }
@@ -216,10 +216,10 @@ public class UsuarioServico {
     }
 
     public Usuario validarIdentificacaoUsuario(String email) throws UsuarioNaoEncontradoException, IllegalStateException {
-        // // registroServico.registrarEventoDoUsuario(LogEventosMIDs.AUTH_ETAPA1_INICIADA, null, "email_tentativa", email); // UID será adicionado depois se o usuário for encontrado
+        
 
         if (email == null || email.trim().isEmpty()) {
-            // // registroServico.registrarEventoDoUsuario(LogEventosMIDs.AUTH_ETAPA1_ENCERRADA, null, "email_tentativa", email, "resultado", "entrada_invalida");
+           
             throw new IllegalArgumentException("Email não pode ser vazio.");
         }
 
@@ -227,8 +227,7 @@ public class UsuarioServico {
         try {
             usuario = usuarioDAO.buscarPorEmail(email)
                 .orElseThrow(() -> {
-                    // // registroServico.registrarEventoDoUsuario(LogEventosMIDs.AUTH_LOGIN_NAO_IDENTIFICADO, null, "email_tentativa", email);
-                    // // registroServico.registrarEventoDoUsuario(LogEventosMIDs.AUTH_ETAPA1_ENCERRADA, null, "email_tentativa", email, "resultado", "usuario_nao_encontrado");
+                    
                     return new UsuarioNaoEncontradoException("Usuário não encontrado para o email: " + email);
                 });
         } catch (SQLException e) {
@@ -239,8 +238,7 @@ public class UsuarioServico {
         Long uidUsuario = usuario.getId(); // UID disponível para logs subsequentes
 
         if (usuario.isAcessoBloqueado()) {
-            // // registroServico.registrarEventoDoUsuario(LogEventosMIDs.AUTH_LOGIN_BLOQUEADO, uidUsuario, "email", email, "bloqueado_ate", usuario.getBloqueadoAte().toString());
-            // // registroServico.registrarEventoDoUsuario(LogEventosMIDs.AUTH_ETAPA1_ENCERRADA, uidUsuario, "email", email, "resultado", "usuario_bloqueado");
+            
             System.err.println("Tentativa de login para usuário bloqueado: " + email + ". Bloqueado até: " + usuario.getBloqueadoAte());
             throw new IllegalStateException("Acesso bloqueado para o usuário: " + email + ". Tente novamente após " + usuario.getBloqueadoAte());
         }
@@ -252,7 +250,7 @@ public class UsuarioServico {
             throw new IllegalStateException("Configuração interna inválida para o usuário: " + email + ". Contate o administrador.");
         }
         
-        // // registroServico.registrarEventoDoUsuario(LogEventosMIDs.AUTH_ETAPA1_ENCERRADA, uidUsuario, "email", email, "resultado", "sucesso_identificacao");
+        registroServico.registrarEventoDoUsuario(LogEventosMIDs.AUTH_ETAPA1_ENCERRADA, uidUsuario, "email", email, "resultado", "sucesso_identificacao");
         return usuario; // Retorna o usuário se todas as verificações passarem
     }
 
