@@ -15,6 +15,10 @@ import java.time.LocalDateTime;
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
+import br.com.cofredigital.log.LogEventosMIDs;
+import java.util.HashMap;
+import java.util.Map;
+import br.com.cofredigital.log.servico.RegistroServico;
 
 public class ConsultarArquivosSecretosPanel extends JPanel {
     // Cabeçalho
@@ -38,9 +42,17 @@ public class ConsultarArquivosSecretosPanel extends JPanel {
     private PrivateKey chavePrivadaAdmin;
     private PublicKey chavePublicaAdmin;
     private RegistroDAO registroDAO = new RegistroDAOImpl();
+    private RegistroServico registroServico = new RegistroServico();
 
     public ConsultarArquivosSecretosPanel() {
         setLayout(new BorderLayout(10, 10));
+
+        // Logar apresentação da tela de consulta de arquivos secretos
+        if (usuarioLogado != null) {
+            Map<String, String> detalhes = new HashMap<>();
+            detalhes.put("login_name", usuarioLogado.getEmail());
+            registroServico.registrarEventoDoUsuario(LogEventosMIDs.TELA_CONSULTA_ARQUIVOS_APRESENTADA, usuarioLogado.getId(), detalhes);
+        }
 
         // --- Painel do Cabeçalho ---
         JPanel headerPanel = new JPanel(new GridLayout(0, 1, 5, 5));
@@ -113,20 +125,20 @@ public class ConsultarArquivosSecretosPanel extends JPanel {
             Long uid = (usuarioLogado != null && usuarioLogado.getId() != null) ? usuarioLogado.getId() : null;
             if (usuarioLogado == null) {
                 JOptionPane.showMessageDialog(this, "Usuário não definido.", "Erro", JOptionPane.ERROR_MESSAGE);
-                // Logar falha geral
-                registrarLogFalha(9000, uid, "Usuário não definido ao consultar arquivos. Caminho: " + caminhoPasta);
+                
+                
                 return;
             }
             if (caminhoPasta.isEmpty() || fraseSecretaUsuario.isEmpty()) {
                 JOptionPane.showMessageDialog(this, "Preencha o caminho da pasta e a frase secreta.", "Campos obrigatórios", JOptionPane.WARNING_MESSAGE);
                 // Logar falha geral
-                registrarLogFalha(9000, uid, "Campos obrigatórios não preenchidos. Caminho: " + caminhoPasta);
+                
                 return;
             }
             if (usuarioServico == null) {
                 JOptionPane.showMessageDialog(this, "Serviço de usuário não configurado.", "Erro interno", JOptionPane.ERROR_MESSAGE);
                 // Logar falha geral
-                registrarLogFalha(9000, uid, "Serviço de usuário não configurado. Caminho: " + caminhoPasta);
+                
                 return;
             }
             try {
@@ -136,7 +148,7 @@ public class ConsultarArquivosSecretosPanel extends JPanel {
                     .findFirst().orElse(null);
                 if (admin == null) {
                     JOptionPane.showMessageDialog(this, "Administrador do sistema não encontrado para verificar assinatura.", "Erro", JOptionPane.ERROR_MESSAGE);
-                    registrarLogFalha(9000, uid, "Administrador não encontrado. Caminho: " + caminhoPasta);
+                    
                     return;
                 }
                 int adminKid = admin.getKid();
@@ -145,7 +157,7 @@ public class ConsultarArquivosSecretosPanel extends JPanel {
                 String fraseSecretaAdmin = usuarioServico.getAdminPassphraseForSession();
                 if (fraseSecretaAdmin == null || fraseSecretaAdmin.isEmpty()) {
                     JOptionPane.showMessageDialog(this, "A frase secreta do administrador não está disponível na sessão. Por favor, reinicie o sistema e faça o login do administrador para liberar o acesso.", "Acesso não autorizado", JOptionPane.ERROR_MESSAGE);
-                    registrarLogFalha(9000, uid, "Frase secreta do admin não disponível. Caminho: " + caminhoPasta);
+                    
                     return;
                 }
                 // 3. Decriptar a chave privada do admin
@@ -156,7 +168,7 @@ public class ConsultarArquivosSecretosPanel extends JPanel {
                     );
                 } catch (Exception exPriv) {
                     JOptionPane.showMessageDialog(this, "Frase secreta incorreta para decriptar a chave privada do administrador.", "Erro de autenticação", JOptionPane.ERROR_MESSAGE);
-                    registrarLogFalha(9000, uid, "Frase secreta incorreta para decriptar chave privada admin. Caminho: " + caminhoPasta);
+                    
                     return;
                 }
                 java.security.cert.X509Certificate certificadoAdmin = br.com.cofredigital.crypto.CertificateUtil.loadCertificateFromPEMString(chaveiroAdmin.getCertificadoPem());
@@ -173,11 +185,17 @@ public class ConsultarArquivosSecretosPanel extends JPanel {
                     semente = br.com.cofredigital.util.ArquivoProtegidoUtil.decriptarEnvelope(envBytes, chavePrivadaAdmin);
                 } catch (java.security.GeneralSecurityException exEnv) {
                     JOptionPane.showMessageDialog(this, "Erro ao decriptar envelope digital do índice com a chave do administrador.", "Permissão negada", JOptionPane.ERROR_MESSAGE);
-                    registrarLogFalha(7007, uid, "Falha na decriptação do envelope digital do índice. Caminho: " + caminhoPasta + ". Erro: " + exEnv.getMessage());
+                    Map<String, String> detalhes = new HashMap<>();
+                    detalhes.put("login_name", usuarioLogado != null ? usuarioLogado.getEmail() : "N/A");
+                    detalhes.put("msg", "Falha na decriptação do envelope digital do índice. Caminho: " + caminhoPasta + ". Erro: " + exEnv.getMessage());
+                    registroServico.registrarEventoDoUsuario(LogEventosMIDs.CONSULTA_INDICE_DECRIPTACAO_FALHA, uid, detalhes);
                     return;
                 } catch (Exception exEnv) {
                     JOptionPane.showMessageDialog(this, "Erro ao decriptar envelope digital: " + exEnv.getMessage(), "Erro", JOptionPane.ERROR_MESSAGE);
-                    registrarLogFalha(7007, uid, "Falha na decriptação do envelope digital do índice. Caminho: " + caminhoPasta + ". Erro: " + exEnv.getMessage());
+                    Map<String, String> detalhes = new HashMap<>();
+                    detalhes.put("login_name", usuarioLogado != null ? usuarioLogado.getEmail() : "N/A");
+                    detalhes.put("msg", "Falha na decriptação do envelope digital do índice. Caminho: " + caminhoPasta + ". Erro: " + exEnv.getMessage());
+                    registroServico.registrarEventoDoUsuario(LogEventosMIDs.CONSULTA_INDICE_DECRIPTACAO_FALHA, uid, detalhes);
                     return;
                 }
                 // 6. Gerar chave AES
@@ -189,7 +207,10 @@ public class ConsultarArquivosSecretosPanel extends JPanel {
                 boolean assinaturaOk = br.com.cofredigital.util.ArquivoProtegidoUtil.verificarAssinatura(indiceDecriptado, asdBytes, certificadoAdmin.getPublicKey());
                 if (!assinaturaOk) {
                     JOptionPane.showMessageDialog(this, "Assinatura digital do índice inválida! Arquivo pode ter sido adulterado.", "Erro de integridade", JOptionPane.ERROR_MESSAGE);
-                    registrarLogFalha(7008, uid, "Falha na verificação de integridade/autenticidade do índice. Caminho: " + caminhoPasta);
+                    Map<String, String> detalhes = new HashMap<>();
+                    detalhes.put("login_name", usuarioLogado != null ? usuarioLogado.getEmail() : "N/A");
+                    detalhes.put("msg", "Falha na verificação de integridade/autenticidade do índice. Caminho: " + caminhoPasta);
+                    registroServico.registrarEventoDoUsuario(LogEventosMIDs.CONSULTA_INDICE_VERIFICACAO_FALHA, uid, detalhes);
                     return;
                 }
                 // 9. Ler linhas e preencher tabela
@@ -214,10 +235,13 @@ public class ConsultarArquivosSecretosPanel extends JPanel {
                 }
                 JOptionPane.showMessageDialog(this, "Consulta realizada com sucesso!", "Sucesso", JOptionPane.INFORMATION_MESSAGE);
                 // Logar sucesso
-                registrarLogSucesso(7009, uid, "Consulta realizada. Caminho: " + caminhoPasta + ". Arquivos listados: " + arquivosListados);
+                Map<String, String> detalhes = new HashMap<>();
+                detalhes.put("login_name", usuarioLogado != null ? usuarioLogado.getEmail() : "N/A");
+                detalhes.put("msg", "Consulta realizada. Caminho: " + caminhoPasta + ". Arquivos listados: " + arquivosListados);
+                registroServico.registrarEventoDoUsuario(LogEventosMIDs.CONSULTA_LISTA_ARQUIVOS_INDICE_APRESENTADA, uid, detalhes);
             } catch (Exception ex) {
                 JOptionPane.showMessageDialog(this, "Erro ao consultar arquivos secretos: " + ex.getMessage(), "Erro", JOptionPane.ERROR_MESSAGE);
-                registrarLogFalha(9000, uid, "Erro inesperado ao consultar arquivos secretos. Caminho: " + caminhoPasta + ". Erro: " + ex.getMessage());
+                
             }
         });
 
@@ -247,7 +271,10 @@ public class ConsultarArquivosSecretosPanel extends JPanel {
             String caminhoPasta = getCaminhoPasta();
             if (!dono.equalsIgnoreCase(loginUsuario)) {
                 JOptionPane.showMessageDialog(this, "Você não tem permissão para acessar este arquivo (não é o dono).", "Acesso negado", JOptionPane.WARNING_MESSAGE);
-                registrarLogFalha(7012, uid, "Acesso negado ao arquivo '" + nomeArquivo + "' (código: " + nomeCodigo + ") para " + loginUsuario);
+                Map<String, String> detalhes = new HashMap<>();
+                detalhes.put("login_name", usuarioLogado != null ? usuarioLogado.getEmail() : "N/A");
+                detalhes.put("arq_name", nomeArquivo);
+                registroServico.registrarEventoDoUsuario(LogEventosMIDs.CONSULTA_ACESSO_ARQUIVO_NEGADO, uid, detalhes);
                 return;
             }
             try {
@@ -255,7 +282,10 @@ public class ConsultarArquivosSecretosPanel extends JPanel {
                 java.util.List<br.com.cofredigital.persistencia.modelo.Chaveiro> chaveiros = usuarioServico.listarChaveirosPorUid(usuarioLogado.getId());
                 if (chaveiros.isEmpty()) {
                     JOptionPane.showMessageDialog(this, "Chaveiro do usuário logado não encontrado.", "Erro", JOptionPane.ERROR_MESSAGE);
-                    registrarLogFalha(7015, uid, "Chaveiro do usuário logado não encontrado para arquivo '" + nomeArquivo + "' (código: " + nomeCodigo + ")");
+                    Map<String, String> detalhes = new HashMap<>();
+                    detalhes.put("login_name", usuarioLogado != null ? usuarioLogado.getEmail() : "N/A");
+                    detalhes.put("arq_name", nomeArquivo);
+                    registroServico.registrarEventoDoUsuario(LogEventosMIDs.CONSULTA_ARQUIVO_DECRIPTACAO_FALHA, uid, detalhes);
                     return;
                 }
                 br.com.cofredigital.persistencia.modelo.Chaveiro chaveiroUsuario = chaveiros.get(0); // Assume o primeiro como padrão
@@ -272,7 +302,11 @@ public class ConsultarArquivosSecretosPanel extends JPanel {
                     chavePublicaDono = certificadoDono.getPublicKey();
                 } catch (Exception certEx) {
                     JOptionPane.showMessageDialog(this, "Erro de autenticidade: não foi possível obter a chave pública do dono do arquivo. O arquivo pode não ser autêntico.\nDetalhe: " + certEx.getMessage(), "Erro de autenticidade", JOptionPane.ERROR_MESSAGE);
-                    registrarLogFalha(7016, uid, "Erro de autenticidade ao carregar chave pública do dono para arquivo '" + nomeArquivo + "' (código: " + nomeCodigo + "): " + certEx.getMessage());
+                    Map<String, String> detalhes = new HashMap<>();
+                    detalhes.put("login_name", usuarioLogado != null ? usuarioLogado.getEmail() : "N/A");
+                    detalhes.put("arq_name", nomeArquivo);
+                    detalhes.put("msg", "Erro de autenticidade ao carregar chave pública do dono para arquivo: " + certEx.getMessage());
+                    registroServico.registrarEventoDoUsuario(LogEventosMIDs.CONSULTA_ARQUIVO_VERIFICACAO_FALHA, uid, detalhes);
                     return;
                 }
                 // Ler arquivos do arquivo secreto
@@ -287,7 +321,11 @@ public class ConsultarArquivosSecretosPanel extends JPanel {
                     asdBytes = br.com.cofredigital.util.ArquivoProtegidoUtil.lerArquivo(prefix + ".asd");
                 } catch (Exception fileEx) {
                     JOptionPane.showMessageDialog(this, "Erro ao ler arquivos secretos: " + fileEx.getMessage(), "Erro de leitura", JOptionPane.ERROR_MESSAGE);
-                    registrarLogFalha(7015, uid, "Erro ao ler arquivos secretos para '" + nomeArquivo + "' (código: " + nomeCodigo + "): " + fileEx.getMessage());
+                    Map<String, String> detalhes = new HashMap<>();
+                    detalhes.put("login_name", usuarioLogado != null ? usuarioLogado.getEmail() : "N/A");
+                    detalhes.put("arq_name", nomeArquivo);
+                    detalhes.put("msg", "Erro ao ler arquivos secretos: " + fileEx.getMessage());
+                    registroServico.registrarEventoDoUsuario(LogEventosMIDs.CONSULTA_ARQUIVO_DECRIPTACAO_FALHA, uid, detalhes);
                     return;
                 }
                 byte[] semente = null;
@@ -295,7 +333,11 @@ public class ConsultarArquivosSecretosPanel extends JPanel {
                     semente = br.com.cofredigital.util.ArquivoProtegidoUtil.decriptarEnvelope(envBytes, chavePrivadaUsuario);
                 } catch (Exception exEnv) {
                     JOptionPane.showMessageDialog(this, "Erro de sigilo: falha ao decriptar o envelope do arquivo. Verifique se a chave privada está correta.\nDetalhe: " + exEnv.getMessage(), "Erro de sigilo", JOptionPane.ERROR_MESSAGE);
-                    registrarLogFalha(7015, uid, "Erro ao decriptar envelope do arquivo '" + nomeArquivo + "' (código: " + nomeCodigo + "): " + exEnv.getMessage());
+                    Map<String, String> detalhes = new HashMap<>();
+                    detalhes.put("login_name", usuarioLogado != null ? usuarioLogado.getEmail() : "N/A");
+                    detalhes.put("arq_name", nomeArquivo);
+                    detalhes.put("msg", "Erro ao decriptar envelope: " + exEnv.getMessage());
+                    registroServico.registrarEventoDoUsuario(LogEventosMIDs.CONSULTA_ARQUIVO_DECRIPTACAO_FALHA, uid, detalhes);
                     return;
                 }
                 javax.crypto.SecretKey chaveAES = null;
@@ -303,7 +345,11 @@ public class ConsultarArquivosSecretosPanel extends JPanel {
                     chaveAES = br.com.cofredigital.util.ArquivoProtegidoUtil.gerarChaveAES(semente);
                 } catch (Exception exAesKey) {
                     JOptionPane.showMessageDialog(this, "Erro ao gerar chave AES: " + exAesKey.getMessage(), "Erro de chave AES", JOptionPane.ERROR_MESSAGE);
-                    registrarLogFalha(7015, uid, "Erro ao gerar chave AES para arquivo '" + nomeArquivo + "' (código: " + nomeCodigo + "): " + exAesKey.getMessage());
+                    Map<String, String> detalhes = new HashMap<>();
+                    detalhes.put("login_name", usuarioLogado != null ? usuarioLogado.getEmail() : "N/A");
+                    detalhes.put("arq_name", nomeArquivo);
+                    detalhes.put("msg", "Erro ao gerar chave AES: " + exAesKey.getMessage());
+                    registroServico.registrarEventoDoUsuario(LogEventosMIDs.CONSULTA_ARQUIVO_DECRIPTACAO_FALHA, uid, detalhes);
                     return;
                 }
                 byte[] conteudoDecriptado = null;
@@ -311,7 +357,11 @@ public class ConsultarArquivosSecretosPanel extends JPanel {
                     conteudoDecriptado = br.com.cofredigital.util.ArquivoProtegidoUtil.decriptarArquivoAES(encBytes, chaveAES);
                 } catch (Exception exAes) {
                     JOptionPane.showMessageDialog(this, "Erro de sigilo: falha ao decriptar o conteúdo do arquivo. Verifique se a chave está correta.\nDetalhe: " + exAes.getMessage(), "Erro de sigilo", JOptionPane.ERROR_MESSAGE);
-                    registrarLogFalha(7015, uid, "Erro ao decriptar conteúdo do arquivo '" + nomeArquivo + "' (código: " + nomeCodigo + "): " + exAes.getMessage());
+                    Map<String, String> detalhes = new HashMap<>();
+                    detalhes.put("login_name", usuarioLogado != null ? usuarioLogado.getEmail() : "N/A");
+                    detalhes.put("arq_name", nomeArquivo);
+                    detalhes.put("msg", "Erro ao decriptar conteúdo: " + exAes.getMessage());
+                    registroServico.registrarEventoDoUsuario(LogEventosMIDs.CONSULTA_ARQUIVO_DECRIPTACAO_FALHA, uid, detalhes);
                     return;
                 }
                 boolean assinaturaOk = false;
@@ -319,27 +369,45 @@ public class ConsultarArquivosSecretosPanel extends JPanel {
                     assinaturaOk = br.com.cofredigital.util.ArquivoProtegidoUtil.verificarAssinatura(conteudoDecriptado, asdBytes, chavePublicaDono);
                 } catch (Exception sigEx) {
                     JOptionPane.showMessageDialog(this, "Erro de autenticidade: falha ao verificar a assinatura digital. O arquivo pode não ser autêntico.\nDetalhe: " + sigEx.getMessage(), "Erro de autenticidade", JOptionPane.ERROR_MESSAGE);
-                    registrarLogFalha(7016, uid, "Erro de autenticidade ao verificar assinatura digital do arquivo '" + nomeArquivo + "' (código: " + nomeCodigo + "): " + sigEx.getMessage());
+                    Map<String, String> detalhes = new HashMap<>();
+                    detalhes.put("login_name", usuarioLogado != null ? usuarioLogado.getEmail() : "N/A");
+                    detalhes.put("arq_name", nomeArquivo);
+                    detalhes.put("msg", "Erro ao verificar assinatura: " + sigEx.getMessage());
+                    registroServico.registrarEventoDoUsuario(LogEventosMIDs.CONSULTA_ARQUIVO_VERIFICACAO_FALHA, uid, detalhes);
                     return;
                 }
                 if (!assinaturaOk) {
                     JOptionPane.showMessageDialog(this, "Erro de integridade: o conteúdo do arquivo foi alterado ou corrompido. Assinatura digital inválida.", "Erro de integridade", JOptionPane.ERROR_MESSAGE);
-                    registrarLogFalha(7016, uid, "Falha na verificação de integridade do arquivo '" + nomeArquivo + "' (código: " + nomeCodigo + ")");
+                    Map<String, String> detalhes = new HashMap<>();
+                    detalhes.put("login_name", usuarioLogado != null ? usuarioLogado.getEmail() : "N/A");
+                    detalhes.put("arq_name", nomeArquivo);
+                    registroServico.registrarEventoDoUsuario(LogEventosMIDs.CONSULTA_ARQUIVO_VERIFICACAO_FALHA, uid, detalhes);
                     return;
                 }
                 try {
                     java.nio.file.Files.write(java.nio.file.Paths.get(basePath, nomeArquivo), conteudoDecriptado);
                 } catch (Exception writeEx) {
                     JOptionPane.showMessageDialog(this, "Erro ao salvar arquivo decriptado: " + writeEx.getMessage(), "Erro ao salvar", JOptionPane.ERROR_MESSAGE);
-                    registrarLogFalha(7015, uid, "Erro ao salvar arquivo decriptado '" + nomeArquivo + "' (código: " + nomeCodigo + "): " + writeEx.getMessage());
+                    Map<String, String> detalhes = new HashMap<>();
+                    detalhes.put("login_name", usuarioLogado != null ? usuarioLogado.getEmail() : "N/A");
+                    detalhes.put("arq_name", nomeArquivo);
+                    detalhes.put("msg", "Erro ao salvar arquivo decriptado: " + writeEx.getMessage());
+                    registroServico.registrarEventoDoUsuario(LogEventosMIDs.CONSULTA_ARQUIVO_DECRIPTACAO_FALHA, uid, detalhes);
                     return;
                 }
                 JOptionPane.showMessageDialog(this, "Arquivo decriptado com sucesso e salvo como '" + nomeArquivo + "'!", "Sucesso", JOptionPane.INFORMATION_MESSAGE);
-                registrarLogSucesso(7013, uid, "Arquivo '" + nomeArquivo + "' decriptado com sucesso (código: " + nomeCodigo + ")");
+                Map<String, String> detalhesLog = new HashMap<>();
+                detalhesLog.put("login_name", usuarioLogado.getEmail());
+                detalhesLog.put("arq_name", nomeArquivo);
+                registroServico.registrarEventoDoUsuario(LogEventosMIDs.CONSULTA_ARQUIVO_DECRIPTADO_OK, uid, detalhesLog);
             } catch (Exception ex) {
                 ex.printStackTrace();
                 JOptionPane.showMessageDialog(this, "Erro inesperado ao decriptar arquivo secreto: " + ex.getMessage(), "Erro inesperado", JOptionPane.ERROR_MESSAGE);
-                registrarLogFalha(7015, uid, "Erro inesperado ao decriptar arquivo '" + nomeArquivo + "' (código: " + nomeCodigo + "): " + ex.getMessage());
+                Map<String, String> detalhes = new HashMap<>();
+                detalhes.put("login_name", usuarioLogado != null ? usuarioLogado.getEmail() : "N/A");
+                detalhes.put("arq_name", nomeArquivo);
+                detalhes.put("msg", "Erro inesperado ao decriptar arquivo: " + ex.getMessage());
+                registroServico.registrarEventoDoUsuario(LogEventosMIDs.CONSULTA_ARQUIVO_DECRIPTACAO_FALHA, uid, detalhes);
             }
         });
 
@@ -354,6 +422,10 @@ public class ConsultarArquivosSecretosPanel extends JPanel {
         // Listener do botão Voltar
         btnVoltar.addActionListener(e -> {
             if (usuarioLogado != null && usuarioLogado.getGrupo() != null && usuarioLogado.getGrupo().equalsIgnoreCase("Administrador")) {
+                // Logar clique no botão voltar para admin
+                Map<String, String> detalhes = new HashMap<>();
+                detalhes.put("login_name", usuarioLogado.getEmail());
+                registroServico.registrarEventoDoUsuario(LogEventosMIDs.CONSULTA_BOTAO_VOLTAR_MENU_PRINCIPAL, usuarioLogado.getId(), detalhes);
                 // Voltar para o menu do admin
                 java.awt.Component c = this.getParent();
                 while (c != null && !(c instanceof javax.swing.JFrame)) {
@@ -363,6 +435,10 @@ public class ConsultarArquivosSecretosPanel extends JPanel {
                     ((MainFrame) c).showScreen(MainFrame.ADMIN_MAIN_PANEL);
                 }
             } else if (usuarioLogado != null) {
+                // Logar clique no botão voltar para usuário comum
+                Map<String, String> detalhes = new HashMap<>();
+                detalhes.put("login_name", usuarioLogado.getEmail());
+                registroServico.registrarEventoDoUsuario(LogEventosMIDs.CONSULTA_BOTAO_VOLTAR_MENU_PRINCIPAL, usuarioLogado.getId(), detalhes);
                 // Voltar para o menu do usuário comum
                 java.awt.Component c = this.getParent();
                 while (c != null && !(c instanceof javax.swing.JFrame)) {
@@ -426,21 +502,5 @@ public class ConsultarArquivosSecretosPanel extends JPanel {
         this.chavePublicaAdmin = chavePublica;
     }
 
-    // Métodos utilitários para registrar logs
-    private void registrarLogSucesso(int mid, Long uid, String detalhes) {
-        try {
-            Registro reg = new Registro(LocalDateTime.now(), mid, uid, detalhes);
-            registroDAO.salvar(reg);
-        } catch (Exception ex) {
-            System.err.println("Falha ao registrar log de sucesso: " + ex.getMessage());
-        }
-    }
-    private void registrarLogFalha(int mid, Long uid, String detalhes) {
-        try {
-            Registro reg = new Registro(LocalDateTime.now(), mid, uid, detalhes);
-            registroDAO.salvar(reg);
-        } catch (Exception ex) {
-            System.err.println("Falha ao registrar log de falha: " + ex.getMessage());
-        }
-    }
+    
 } 

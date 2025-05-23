@@ -83,8 +83,6 @@ public final class LogEventosMIDs {
     public static final int BOTAO_ENCERRAR_SISTEMA = 8003; // Requer <login_name> (usuário que clicou)
     public static final int SAIR_BOTAO_VOLTAR_MENU_PRINCIPAL = 8004; // Requer <login_name>
     
-    // Outros eventos (9xxx) - Ex: Manutenção, erros inesperados não cobertos
-    public static final int SISTEMA_ALERTA = 9000; // Para alertas gerais do sistema, como falha ao deletar temp file.
-    // public static final int ERRO_INESPERADO_SISTEMA = 9001; // Requer detalhes
+    
 
 } 
