@@ -255,7 +255,7 @@ public class UsuarioServico {
     }
 
     public Optional<String> autenticarComTecladoVirtual(Usuario usuario, List<Character[]> sequenciaPares) throws Exception {
-        // // registroServico.registrarEventoDoUsuario(LogEventosMIDs.AUTH_ETAPA2_INICIADA, usuario.getId(), "email", usuario.getEmail());
+        
 
         if (usuario == null || sequenciaPares == null || sequenciaPares.isEmpty()) {
             // // registroServico.registrarEventoDoUsuario(LogEventosMIDs.AUTH_ETAPA2_ENCERRADA, usuario != null ? usuario.getId() : null, "email", usuario != null ? usuario.getEmail() : "N/A", "resultado", "entrada_invalida_etapa2");
