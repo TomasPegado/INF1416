@@ -228,6 +228,7 @@ public class UsuarioServico {
             usuario = usuarioDAO.buscarPorEmail(email)
                 .orElseThrow(() -> {
                     
+                    registroServico.registrarEventoDoUsuario(LogEventosMIDs.AUTH_LOGIN_NAO_IDENTIFICADO, null, "login_name", email);
                     return new UsuarioNaoEncontradoException("Usuário não encontrado para o email: " + email);
                 });
         } catch (SQLException e) {
@@ -239,6 +240,7 @@ public class UsuarioServico {
 
         if (usuario.isAcessoBloqueado()) {
             
+            registroServico.registrarEventoDoUsuario(LogEventosMIDs.AUTH_LOGIN_BLOQUEADO, usuario.getId(), "email", usuario.getEmail());
             System.err.println("Tentativa de login para usuário bloqueado: " + email + ". Bloqueado até: " + usuario.getBloqueadoAte());
             throw new IllegalStateException("Acesso bloqueado para o usuário: " + email + ". Tente novamente após " + usuario.getBloqueadoAte());
         }
@@ -251,6 +253,7 @@ public class UsuarioServico {
         }
         
         registroServico.registrarEventoDoUsuario(LogEventosMIDs.AUTH_ETAPA1_ENCERRADA, uidUsuario, "email", email, "resultado", "sucesso_identificacao");
+        registroServico.registrarEventoDoUsuario(LogEventosMIDs.AUTH_LOGIN_LIBERADO, usuario.getId(), "email", usuario.getEmail());
         return usuario; // Retorna o usuário se todas as verificações passarem
     }
 
