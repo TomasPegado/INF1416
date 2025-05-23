@@ -30,8 +30,7 @@ public class ValidateAdminPassphrasePanel extends JPanel {
         initComponents();
         addListeners();
 
-        // Log de apresentação da tela já no construtor.
-        this.registroServico.registrarEventoDoSistema(LogEventosMIDs.VALIDATE_ADMIN_PASSPHRASE_TELA_APRESENTADA_GUI);
+        
     }
 
     private void initComponents() {
@@ -77,7 +76,7 @@ public class ValidateAdminPassphrasePanel extends JPanel {
         pwdFraseSecretaAdmin.addActionListener(e -> processarValidacao()); // Permitir Enter no campo de senha
 
         btnSair.addActionListener(e -> {
-            registroServico.registrarEventoDoSistema(LogEventosMIDs.VALIDATE_ADMIN_PASSPHRASE_CANCELADA_GUI);
+            
             // Confirmar antes de sair
             int confirm = JOptionPane.showConfirmDialog(
                 this,
@@ -95,7 +94,7 @@ public class ValidateAdminPassphrasePanel extends JPanel {
     private void processarValidacao() {
         String fraseSecreta = new String(pwdFraseSecretaAdmin.getPassword());
         if (fraseSecreta.trim().isEmpty()) {
-            registroServico.registrarEventoDoSistema(LogEventosMIDs.VALIDATE_ADMIN_PASSPHRASE_FALHA_GUI, "motivo", "Frase secreta não fornecida");
+            
             JOptionPane.showMessageDialog(this, "A frase secreta não pode estar vazia.", "Erro de Validação", JOptionPane.ERROR_MESSAGE);
             pwdFraseSecretaAdmin.requestFocus();
             return;
@@ -104,13 +103,14 @@ public class ValidateAdminPassphrasePanel extends JPanel {
         boolean isValid = usuarioServico.validateAdminPassphrase(fraseSecreta);
 
         if (isValid) {
-            registroServico.registrarEventoDoSistema(LogEventosMIDs.VALIDATE_ADMIN_PASSPHRASE_SUCESSO_GUI);
+            
             // Frase secreta validada, MainFrame deve ter armazenado na sessão do UsuarioServico.
             // Limpar campo para segurança
             pwdFraseSecretaAdmin.setText("");
+            registroServico.registrarEventoDoSistema(LogEventosMIDs.PARTIDA_SISTEMA_OPERACAO_NORMAL);
             mainFrame.onAdminPassphraseValidated(); // Notifica o MainFrame
         } else {
-            registroServico.registrarEventoDoSistema(LogEventosMIDs.VALIDATE_ADMIN_PASSPHRASE_FALHA_GUI, "motivo", "Frase secreta inválida (validação do serviço falhou)");
+            
             JOptionPane.showMessageDialog(this, 
                 "A frase secreta do administrador é inválida. Verifique e tente novamente.", 
                 "Falha na Validação", 

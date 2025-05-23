@@ -54,8 +54,6 @@ public class SetupAdminPanel extends JPanel {
 
         initComponents();
         addListeners();
-
-        this.registroServico.registrarEventoDoSistema(LogEventosMIDs.SETUP_ADMIN_TELA_APRESENTADA_GUI);
     }
 
     private void initComponents() {
@@ -148,7 +146,6 @@ public class SetupAdminPanel extends JPanel {
         btnSelecionarChavePrivada.addActionListener(e -> selecionarArquivo("Selecionar Chave Privada", txtCaminhoChavePrivada, "key", "der"));
 
         btnConfigurarAdmin.addActionListener(e -> {
-            this.registroServico.registrarEventoDoSistema(LogEventosMIDs.SETUP_ADMIN_BOTAO_CONFIGURAR_PRESSIONADO_GUI);
             processarConfiguracaoAdmin();
         });
     }
@@ -179,13 +176,11 @@ public class SetupAdminPanel extends JPanel {
         String confirmarSenha = new String(pwdConfirmarSenhaAdmin.getPassword());
 
         if (StringUtil.isAnyEmpty(caminhoCertOriginal, caminhoChave, fraseSecreta, senha, confirmarSenha)) {
-            registroServico.registrarEventoDoSistema(LogEventosMIDs.SETUP_ADMIN_DADOS_INVALIDOS_GUI, "motivo", "Campos obrigatórios não preenchidos.");
             JOptionPane.showMessageDialog(this, "Todos os campos são obrigatórios.", "Erro de Validação", JOptionPane.ERROR_MESSAGE);
             return;
         }
 
         if (!senha.equals(confirmarSenha)) {
-            registroServico.registrarEventoDoSistema(LogEventosMIDs.SETUP_ADMIN_DADOS_INVALIDOS_GUI, "motivo", "Senhas não coincidem.");
             JOptionPane.showMessageDialog(this, "As senhas pessoais não coincidem.", "Erro de Validação", JOptionPane.ERROR_MESSAGE);
             pwdSenhaAdmin.setText("");
             pwdConfirmarSenhaAdmin.setText("");
@@ -195,7 +190,6 @@ public class SetupAdminPanel extends JPanel {
         
         // Validações de senha (exemplo: comprimento mínimo)
         if (senha.length() < 8) { // Ajuste conforme política de senha
-            registroServico.registrarEventoDoSistema(LogEventosMIDs.SETUP_ADMIN_DADOS_INVALIDOS_GUI, "motivo", "Senha pessoal muito curta.");
             JOptionPane.showMessageDialog(this, "A senha pessoal deve ter no mínimo 8 caracteres.", "Erro de Validação", JOptionPane.ERROR_MESSAGE);
             pwdSenhaAdmin.setText("");
             pwdConfirmarSenhaAdmin.setText("");
@@ -238,7 +232,6 @@ public class SetupAdminPanel extends JPanel {
             // A variável 'certificate' abaixo será carregada a partir do 'caminhoCertParaServico'
             X509Certificate certificate = CertificateUtil.loadCertificateFromFile(caminhoCertParaServico);
             if (certificate == null) {
-                 registroServico.registrarEventoDoSistema(LogEventosMIDs.CAD_CERTIFICADO_PATH_INVALIDO, "caminho", caminhoCertOriginal); // Logar caminho original
                  JOptionPane.showMessageDialog(this, "Não foi possível carregar o certificado do caminho especificado (após processamento).", "Erro de Certificado", JOptionPane.ERROR_MESSAGE);
                  return;
             }
@@ -248,14 +241,12 @@ public class SetupAdminPanel extends JPanel {
             try {
                 boolean chaveValida = usuarioServico.validarChavePrivadaComFrase(caminhoChave, fraseSecreta, certificate);
                 if (!chaveValida) {
-                    registroServico.registrarEventoDoSistema(LogEventosMIDs.CAD_CHAVE_PRIVADA_FRASE_SECRETA_INVALIDA, "path_chave", caminhoChave, "motivo", "Frase secreta incorreta ou chave incompatível com certificado.");
                     JOptionPane.showMessageDialog(this, "A frase secreta da chave privada está incorreta ou a chave não corresponde ao certificado.", "Erro de Chave Privada", JOptionPane.ERROR_MESSAGE);
                     pwdFraseSecretaChave.setText("");
                     pwdFraseSecretaChave.requestFocus();
                     return;
                 }
             } catch (Exception ex) {
-                 registroServico.registrarEventoDoSistema(LogEventosMIDs.CAD_CHAVE_PRIVADA_FRASE_SECRETA_INVALIDA, "path_chave", caminhoChave, "erro_validacao", ex.getMessage());
                  JOptionPane.showMessageDialog(this, "Erro ao validar a chave privada: " + ex.getMessage(), "Erro de Chave Privada", JOptionPane.ERROR_MESSAGE);
                  return;
             }
@@ -280,10 +271,6 @@ public class SetupAdminPanel extends JPanel {
                 cn, (emailCert != null ? emailCert : "Não encontrado"), issuer, validFrom, validTo, (emailCert != null ? emailCert : "N/A")
             );
             
-            registroServico.registrarEventoDoSistema(LogEventosMIDs.SETUP_ADMIN_CONFIRMACAO_CERTIFICADO_APRESENTADA_GUI,
-                "cn_cert", cn, "email_cert", (emailCert != null ? emailCert : "N/A"), "validade_cert", validTo
-            );
-
             int confirm = JOptionPane.showConfirmDialog(this,
                 new JLabel(mensagemConfirmacao), // Usar JLabel para suportar HTML
                 "Confirmar Dados do Certificado",
@@ -291,23 +278,18 @@ public class SetupAdminPanel extends JPanel {
                 JOptionPane.INFORMATION_MESSAGE);
 
             if (confirm == JOptionPane.YES_OPTION) {
-                registroServico.registrarEventoDoSistema(LogEventosMIDs.SETUP_ADMIN_CONFIRMACAO_CERTIFICADO_ACEITA_GUI);
                 // Delegar TODA a lógica de submissão, criação do admin, feedback e navegação para o MainFrame.
                 // O MainFrame.onSetupAdminSubmit já faz isso.
                 mainFrame.onSetupAdminSubmit(caminhoCertParaServico, // Usa o caminho do cert PEM limpo
                                             caminhoChave,
                                             fraseSecreta,
                                             senha);
-            } else {
-                registroServico.registrarEventoDoSistema(LogEventosMIDs.SETUP_ADMIN_CONFIRMACAO_CERTIFICADO_REJEITADA_GUI);
             }
         } catch (IOException ioe) {
-            registroServico.registrarEventoDoSistema(LogEventosMIDs.CAD_CERTIFICADO_PATH_INVALIDO, "caminho", caminhoCertOriginal, "erro_io", ioe.getMessage());
             JOptionPane.showMessageDialog(this, "Erro de I/O ao processar o arquivo de certificado: " + ioe.getMessage(), "Erro de Arquivo", JOptionPane.ERROR_MESSAGE);
             ioe.printStackTrace();
         } catch (Exception exGeral) {
             // Captura qualquer outra exceção durante o processamento do certificado ou chave
-            registroServico.registrarEventoDoSistema(LogEventosMIDs.SETUP_ADMIN_FALHA_GERAL_GUI, "erro_inesperado", exGeral.getMessage());
             JOptionPane.showMessageDialog(this, "Ocorreu um erro inesperado: " + exGeral.getMessage(), "Erro Geral", JOptionPane.ERROR_MESSAGE);
             exGeral.printStackTrace();
         } finally {
@@ -317,7 +299,6 @@ public class SetupAdminPanel extends JPanel {
                 } catch (IOException exDel) {
                     // Logar falha na deleção do arquivo temporário, mas não impedir o fluxo
                     System.err.println("Falha ao deletar arquivo de certificado temporário: " + tempCertPath + " - " + exDel.getMessage());
-                    registroServico.registrarEventoDoSistema(LogEventosMIDs.SISTEMA_ALERTA, "tipo", "FalhaDelecaoArquivoTemporario", "path", tempCertPath.toString(), "erro", exDel.getMessage());
                 }
             }
         }

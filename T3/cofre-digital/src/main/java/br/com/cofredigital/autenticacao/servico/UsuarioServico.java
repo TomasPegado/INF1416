@@ -684,7 +684,7 @@ public class UsuarioServico {
         
         Optional<Chaveiro> chaveiroOpt = chaveiroDAO.buscarPorKid(kid);
         if(chaveiroOpt.isEmpty()){
-            // // registroServico.registrarEventoDoUsuario(LogEventosMIDs.USUARIO_ASSOCIA_KID_FALHA_CHAVEIRO_NAO_ENCONTRADO, uid, "uid", String.valueOf(uid), "kid_nao_encontrado", String.valueOf(kid));
+            
             throw new SQLException("Chaveiro com KID " + kid + " não encontrado.");
         }
         // Opcional: verificar se chaveiroOpt.get().getUid() == uid se necessário
@@ -693,11 +693,11 @@ public class UsuarioServico {
         try {
             usuarioDAO.atualizarKidPadrao(uid, kid);
         } catch (SQLException e) {
-            // // registroServico.registrarEventoDoUsuario(LogEventosMIDs.USUARIO_ASSOCIA_KID_FALHA_BD, uid, "uid", String.valueOf(uid), "kid", String.valueOf(kid), "erro_sql", e.getMessage());
+            
             throw e; // Relança para a camada superior
         }
         
-        // // registroServico.registrarEventoDoUsuario(LogEventosMIDs.USUARIO_ASSOCIA_KID_SUCESSO, uid, "uid", String.valueOf(uid), "kid_associado", String.valueOf(kid));
+        
         System.out.println("[UsuarioServico] KID " + kid + " associado ao usuário UID " + uid + " como KID padrão.");
     }
 
@@ -819,9 +819,7 @@ public class UsuarioServico {
             throw new Exception("Erro inesperado ao processar certificado: " + e.getMessage(), e);
         }
         
-        // Agora que temos emailExtraidoCert, podemos logar corretamente e verificar existência
-        // // registroServico.registrarEventoDoSistema(LogEventosMIDs.CAD_USUARIO_INICIO_FLUXO, "email_novo_usuario", emailExtraidoCert, "adminUid", String.valueOf(adminUid));
-        System.out.println("[UsuarioServico] Iniciando cadastro de novo usuário (email do cert): " + emailExtraidoCert + " por admin: " + adminUid + " (Log MID: " + LogEventosMIDs.CAD_USUARIO_INICIO_FLUXO + ")");
+        
 
         if (usuarioDAO.emailExiste(emailExtraidoCert)) {
             // // registroServico.registrarEventoDoSistema(LogEventosMIDs.CAD_EMAIL_JA_EXISTE_NOVO_USUARIO, "email", emailExtraidoCert);

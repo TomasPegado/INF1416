@@ -174,14 +174,6 @@ public class UserRegistrationAdminPanel extends JPanel {
         btnVoltar.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                // Log de GUI: Admin voltando do cadastro para o menu principal
-                if (adminOperador != null && mainFrame.getRegistroServico() != null) {
-                     mainFrame.getRegistroServico().registrarEventoDoUsuario(
-                        LogEventosMIDs.CAD_BOTAO_VOLTAR_MENU_PRINCIPAL, 
-                        adminOperador.getId(),
-                        "admin_email", adminOperador.getEmail()
-                    );
-                }
                 mainFrame.showScreen(MainFrame.ADMIN_MAIN_PANEL);
             }
         });
@@ -220,15 +212,6 @@ public class UserRegistrationAdminPanel extends JPanel {
         comboGrupo.setSelectedIndex(0); // Default para "Usuário"
         pwdSenha.setText("");
         pwdConfirmaSenha.setText("");
-        
-        // Log de GUI: Tela de cadastro (por admin) apresentada
-        if (adminOperador != null && mainFrame.getRegistroServico() != null) {
-             mainFrame.getRegistroServico().registrarEventoDoUsuario(
-                LogEventosMIDs.TELA_CADASTRO_APRESENTADA, 
-                adminOperador.getId(),
-                "admin_email", adminOperador.getEmail()
-            );
-        }
     }
 
     private void performCadastro() {
@@ -244,49 +227,33 @@ public class UserRegistrationAdminPanel extends JPanel {
         String senha = new String(pwdSenha.getPassword());
         String confirmaSenha = new String(pwdConfirmaSenha.getPassword());
 
-        // Log de GUI: Admin pressionou botão cadastrar
-         if (mainFrame.getRegistroServico() != null) {
-             mainFrame.getRegistroServico().registrarEventoDoUsuario(
-                LogEventosMIDs.BOTAO_CADASTRAR_PRESSIONADO, 
-                adminOperador.getId(),
-                "admin_email", adminOperador.getEmail()
-            );
-        }
-
         // Validações
         if (certPath.isEmpty()) {
             JOptionPane.showMessageDialog(this, "Caminho do Certificado Digital é obrigatório.", "Validação Falhou", JOptionPane.ERROR_MESSAGE);
-            mainFrame.getRegistroServico().registrarEventoDoUsuario(LogEventosMIDs.CAD_DADOS_INVALIDOS_GUI, adminOperador.getId(), "motivo", "caminho_certificado_vazio_cadastro_admin");
             return;
         }
         if (keyPath.isEmpty()) {
             JOptionPane.showMessageDialog(this, "Caminho da Chave Privada é obrigatório.", "Validação Falhou", JOptionPane.ERROR_MESSAGE);
-            mainFrame.getRegistroServico().registrarEventoDoUsuario(LogEventosMIDs.CAD_DADOS_INVALIDOS_GUI, adminOperador.getId(), "motivo", "caminho_chave_vazio_cadastro_admin");
             return;
         }
         if (senha.isEmpty()) {
             JOptionPane.showMessageDialog(this, "Senha pessoal é obrigatória.", "Validação Falhou", JOptionPane.ERROR_MESSAGE);
-            mainFrame.getRegistroServico().registrarEventoDoUsuario(LogEventosMIDs.CAD_DADOS_INVALIDOS_GUI, adminOperador.getId(), "motivo", "senha_vazia_cadastro_admin");
             return;
         }
         if (!senha.matches("^\\d{8,10}$")) {
             JOptionPane.showMessageDialog(this, "Senha pessoal deve ter 8, 9 ou 10 dígitos numéricos.", "Validação Falhou", JOptionPane.ERROR_MESSAGE);
-            mainFrame.getRegistroServico().registrarEventoDoUsuario(LogEventosMIDs.CAD_SENHA_INVALIDA, adminOperador.getId(), "motivo", "senha_formato_invalido_cadastro_admin");
             return;
         }
         if (java.util.stream.IntStream.range(0, senha.length() -1).allMatch(i -> senha.charAt(i) == senha.charAt(i+1)) && senha.length() > 1) {
             JOptionPane.showMessageDialog(this, "Senha pessoal não pode ter todos os dígitos repetidos.", "Validação Falhou", JOptionPane.ERROR_MESSAGE);
-            mainFrame.getRegistroServico().registrarEventoDoUsuario(LogEventosMIDs.CAD_SENHA_INVALIDA, adminOperador.getId(), "motivo", "senha_digitos_repetidos_cadastro_admin");
             return;
         }
         if (!senha.equals(confirmaSenha)) {
             JOptionPane.showMessageDialog(this, "As senhas não coincidem.", "Validação Falhou", JOptionPane.ERROR_MESSAGE);
-             mainFrame.getRegistroServico().registrarEventoDoUsuario(LogEventosMIDs.CAD_SENHA_INVALIDA, adminOperador.getId(), "motivo", "senhas_nao_coincidem_cadastro_admin");
             return;
         }
         if (grupoSelecionado == null) {
              JOptionPane.showMessageDialog(this, "Selecione um grupo para o novo usuário.", "Validação Falhou", JOptionPane.ERROR_MESSAGE);
-             mainFrame.getRegistroServico().registrarEventoDoUsuario(LogEventosMIDs.CAD_DADOS_INVALIDOS_GUI, adminOperador.getId(), "motivo", "grupo_nao_selecionado_cadastro_admin");
             return;
         }
 
@@ -297,18 +264,15 @@ public class UserRegistrationAdminPanel extends JPanel {
             certificate = br.com.cofredigital.crypto.CertificateUtil.loadCertificateFromFile(certPath);
             if (certificate == null) { // Deveria ter lançado exceção antes se nulo
                 JOptionPane.showMessageDialog(this, "Falha ao carregar certificado (retornou nulo).", "Erro de Certificado", JOptionPane.ERROR_MESSAGE);
-                mainFrame.getRegistroServico().registrarEventoDoUsuario(LogEventosMIDs.CAD_CERTIFICADO_PATH_INVALIDO, adminOperador.getId(), "caminho", certPath, "motivo", "loadCertificateFromFile_retornou_nulo");
                 return;
             }
             certificateData = br.com.cofredigital.crypto.CertificateUtil.extractCertificateDetails(certificate);
             if (certificateData == null || certificateData.get("E-mail") == null || certificateData.get("E-mail").isEmpty()) {
                 JOptionPane.showMessageDialog(this, "Não foi possível extrair o E-mail do certificado para confirmação.", "Erro de Certificado", JOptionPane.ERROR_MESSAGE);
-                mainFrame.getRegistroServico().registrarEventoDoUsuario(LogEventosMIDs.CAD_USUARIO_DADOS_INVALIDOS, adminOperador.getId(), "motivo", "email_nao_extraido_do_certificado_para_confirmacao");
                 return;
             }
         } catch (Exception ex) {
             JOptionPane.showMessageDialog(this, "Erro ao carregar ou processar o certificado: " + ex.getMessage(), "Erro de Certificado", JOptionPane.ERROR_MESSAGE);
-            mainFrame.getRegistroServico().registrarEventoDoUsuario(LogEventosMIDs.CAD_CERTIFICADO_PATH_INVALIDO, adminOperador.getId(), "caminho", certPath, "erro", ex.getMessage());
             ex.printStackTrace();
             return;
         }
@@ -319,14 +283,10 @@ public class UserRegistrationAdminPanel extends JPanel {
 
         if (!confirmationDialog.isConfirmado()) {
             JOptionPane.showMessageDialog(this, "Cadastro cancelado pelo usuário após visualização dos dados do certificado.", "Cadastro Cancelado", JOptionPane.INFORMATION_MESSAGE);
-            mainFrame.getRegistroServico().registrarEventoDoUsuario(LogEventosMIDs.CAD_CONFIRMACAO_DADOS_REJEITADA, adminOperador.getId(), "email_certificado", certificateData.get("E-mail"));
-            // Roteiro: "retornar à Tela de Cadastro com o formulário preenchido com os dados fornecidos."
-            // Os dados já estão nos campos, então não fazemos nada para limpá-los aqui.
             return;
         }
         
         // Se confirmado, prosseguir com o cadastro
-        mainFrame.getRegistroServico().registrarEventoDoUsuario(LogEventosMIDs.CAD_CONFIRMACAO_DADOS_ACEITA, adminOperador.getId(), "admin_email", adminOperador.getEmail(), "email_certificado", certificateData.get("E-mail"));
 
         // Obter GID do grupo (repetido, mas necessário após confirmação)
         int gid;

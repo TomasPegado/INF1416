@@ -99,27 +99,6 @@ public class MainFrame extends JFrame {
         cardLayout = new CardLayout();
         mainPanel = new JPanel(cardLayout);
 
-        // Painel de Login (Antigo - combinado)
-        /*
-        loginPanel = new LoginPanel(usuarioServico, registroServico) {
-            @Override
-            protected void onLoginSuccess(String email, String senhaPlanaVerificada) {
-                MainFrame.this.usuarioEmLogin = usuarioServico.buscarPorEmail(email);
-                MainFrame.this.senhaEmLogin = senhaPlanaVerificada;
-                if (MainFrame.this.usuarioEmLogin == null) {
-                    JOptionPane.showMessageDialog(MainFrame.this, 
-                                                "Erro crítico: Usuário não encontrado após login bem-sucedido.", 
-                                                "Erro de Login", JOptionPane.ERROR_MESSAGE);
-                    showScreen(EMAIL_VERIFICATION_PANEL); // Should go to email verification if error
-                    return;
-                }
-                // showScreen(TOTP_VALIDATION_PANEL); // Old direct to TOTP
-                navigateToTotpValidation(MainFrame.this.usuarioEmLogin, MainFrame.this.senhaEmLogin); // New navigation
-            }
-            
-        };
-        loginPanel.setName(LOGIN_PANEL);
-        */
 
         // Painel de Cadastro - passar registroServico
         CadastroUsuarioPanel cadastroPanel = new CadastroUsuarioPanel(usuarioServico, registroServico) {
@@ -221,16 +200,13 @@ public class MainFrame extends JFrame {
 
     private void determineInitialScreen() {
         if (usuarioServico.isFirstExecution()) {
-            registroServico.registrarEventoDoSistema(LogEventosMIDs.PARTIDA_SISTEMA_PRIMEIRA_EXECUCAO);
+            // Adiciona o log 1005 para cadastro do admin
+            registroServico.registrarEventoDoSistema(LogEventosMIDs.PARTIDA_SISTEMA_CADASTRO_ADMIN);
             showScreen(SETUP_ADMIN_PANEL);
         } else {
             // Não é primeira execução, solicitar frase secreta do admin
-            // O log VALIDATE_ADMIN_PASSPHRASE_TELA_APRESENTADA_GUI é feito no construtor do painel.
-            // O log PARTIDA_SISTEMA_OPERACAO_NORMAL será feito após a validação bem sucedida da frase.
             if (usuarioServico.isAdminPassphraseValidatedForSession()) {
-                 // Se a frase já foi validada na sessão (ex: admin voltou de outra tela), vai para login
-                // this.registroServico.registrarEventoDoSistema(LogEventosMIDs.AUTH_ETAPA1_INICIADA_GUI, "contexto", "retorno_fluxo_ja_validado_admin_passphrase");
-                // showScreen(LOGIN_PANEL); // Antigo: direto para o LoginPanel combinado
+                registroServico.registrarEventoDoSistema(LogEventosMIDs.PARTIDA_SISTEMA_OPERACAO_NORMAL);
                 showScreen(EMAIL_VERIFICATION_PANEL); // Novo: Inicia com a verificação de email
             } else {
                 showScreen(VALIDATE_ADMIN_PASSPHRASE_PANEL);
@@ -271,7 +247,6 @@ public class MainFrame extends JFrame {
                 Long operadorUid = (usuarioEmLogin != null) ? usuarioEmLogin.getId() : null;
                 String operadorEmail = (usuarioEmLogin != null) ? usuarioEmLogin.getEmail() : null;
                 String operadorGrupo = (usuarioEmLogin != null) ? usuarioEmLogin.getGrupo() : null;
-                registroServico.registrarEventoDoUsuario(LogEventosMIDs.CAD_TELA_APRESENTADA_GUI, operadorUid, "email_operador", operadorEmail, "grupo_operador", operadorGrupo, "contexto", "cadastro_usuario");
             } else if (TOTP_VALIDATION_PANEL.equals(panelName)) {
                 TotpValidationPanel tvp = (TotpValidationPanel) getPanelByName(TOTP_VALIDATION_PANEL);
                 if (tvp != null) {
@@ -358,11 +333,6 @@ public class MainFrame extends JFrame {
     }
 
     public void onSetupAdminSubmit(String caminhoCert, String caminhoChave, String fraseSecreta, String senhaPessoal) {
-        registroServico.registrarEventoDoSistema(LogEventosMIDs.SETUP_ADMIN_BOTAO_CONFIGURAR_PRESSIONADO_GUI,
-                "caminho_cert", caminhoCert,
-                "caminho_chave", caminhoChave
-        );
-
         try {
             Usuario adminCriado = usuarioServico.setupInitialAdmin(
                 null,
@@ -375,22 +345,15 @@ public class MainFrame extends JFrame {
             );
 
             if (adminCriado != null) {
-                 registroServico.registrarEventoDoSistema(LogEventosMIDs.PARTIDA_SISTEMA_CADASTRO_ADMIN_SUCESSO, "uid_admin", String.valueOf(adminCriado.getId()), "email_admin", adminCriado.getEmail(), "grupo_admin", adminCriado.getGrupo());
-                registroServico.registrarEventoDoSistema(LogEventosMIDs.SETUP_ADMIN_SUCESSO_GUI, Map.of("emailAdmin", adminCriado.getEmail(), "uidAdmin", String.valueOf(adminCriado.getId()), "kidChaveiro", String.valueOf(adminCriado.getKid() != null ? adminCriado.getKid() : "N/A"), "grupo_admin", adminCriado.getGrupo()));
-                
-                System.out.println("[MainFrame.onSetupAdminSubmit] JOptionPane de sucesso foi pulado (para teste). Chamando showTotpQrCodePanel..."); // Log de Debug
                 this.usuarioEmCadastro = adminCriado;
                 showTotpQrCodePanel(adminCriado, senhaPessoal); 
-                // showScreen(LOGIN_PANEL); // Mantém comentado
             } else {
-                registroServico.registrarEventoDoSistema(LogEventosMIDs.PARTIDA_SISTEMA_CADASTRO_ADMIN_FALHA, "motivo", "setupInitialAdmin retornou nulo");
                 JOptionPane.showMessageDialog(this, "Falha ao configurar o administrador. Verifique os logs.", "Erro no Setup", JOptionPane.ERROR_MESSAGE);
                 showScreen(SETUP_ADMIN_PANEL);
                 setupAdminPanel.limparCampos();
             }
 
         } catch (Exception e) {
-            registroServico.registrarEventoDoSistema(LogEventosMIDs.PARTIDA_SISTEMA_CADASTRO_ADMIN_FALHA, "erro", e.getMessage());
             JOptionPane.showMessageDialog(this, "Erro ao configurar administrador: " + e.getMessage(), "Erro de Configuração", JOptionPane.ERROR_MESSAGE);
             e.printStackTrace();
             showScreen(SETUP_ADMIN_PANEL);
@@ -402,14 +365,6 @@ public class MainFrame extends JFrame {
 
     // Novo método de callback para o ValidateAdminPassphrasePanel
     public void onAdminPassphraseValidated() {
-        // Este método é chamado pelo ValidateAdminPassphrasePanel quando a frase é validada com sucesso.
-        registroServico.registrarEventoDoSistema(LogEventosMIDs.PARTIDA_SISTEMA_OPERACAO_NORMAL);
-        // Aqui, o sistema está pronto para operar.
-        // Como ainda não temos a tela principal da aplicação, vamos para a tela de Login.
-        // Idealmente, buscaria o usuário admin e o colocaria no estado 'usuarioEmLogin'
-        // para que o fluxo de login possa prosseguir para a etapa de senha pessoal.
-        // Por agora, apenas redireciona para o LOGIN_PANEL.
-        // (Se o admin acabou de ser configurado, ele precisará logar normalmente).
         showScreen(EMAIL_VERIFICATION_PANEL);
     }
 
@@ -426,28 +381,7 @@ public class MainFrame extends JFrame {
     
     // Novo método logout
     public void logout() {
-        if (this.registroServico != null && this.usuarioEmLogin != null) {
-            this.registroServico.registrarEventoDoUsuario(LogEventosMIDs.AUTH_LOGOUT_USUARIO, 
-                                                        this.usuarioEmLogin.getId(), 
-                                                        "email_usuario", this.usuarioEmLogin.getEmail(), "grupo_usuario", this.usuarioEmLogin.getGrupo());
-        } else if (this.registroServico != null) {
-             this.registroServico.registrarEventoDoSistema(LogEventosMIDs.AUTH_LOGOUT_USUARIO, "detalhe", "Usuário já era nulo ou registroServiço indisponível no logout");
-        }
-        
-        if (this.usuarioEmLogin != null) {
-            System.out.println("[MainFrame] Encerrando sessão para: " + this.usuarioEmLogin.getEmail());
-        }
-
         this.usuarioEmLogin = null;
-        // this.senhaEmLogin já é limpa no fluxo de validação do TOTP.
-
-        // NÃO limpar a frase secreta do admin aqui!
-        // A frase secreta do admin só deve ser limpa quando o sistema for encerrado.
-        // if (this.usuarioServico != null) {
-        //     this.usuarioServico.storeAdminPassphraseForSession(null);
-        //     System.out.println("[MainFrame] Frase secreta do administrador da aplicação foi limpa da sessão.");
-        // }
-
         showScreen(EMAIL_VERIFICATION_PANEL);
     }
 

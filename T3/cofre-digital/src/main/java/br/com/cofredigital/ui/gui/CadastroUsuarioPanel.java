@@ -105,8 +105,6 @@ public class CadastroUsuarioPanel extends JPanel {
         add(statusLabel, gbc);
 
         cadastrarButton.addActionListener((ActionEvent e) -> {
-            this.registroServico.registrarEventoDoSistema(LogEventosMIDs.CAD_BOTAO_CADASTRAR_PRESSIONADO_GUI);
-
             String nome = nomeField.getText().trim();
             String email = emailField.getText().trim();
             String senha = new String(senhaField.getPassword());
@@ -119,12 +117,10 @@ public class CadastroUsuarioPanel extends JPanel {
                 (this.isVisible() && !isModoAdminInicial() && (caminhoCertificado.isEmpty() || caminhoChavePrivada.isEmpty() || fraseSecreta.isEmpty())) ||
                 senha.isEmpty() || confirmarSenha.isEmpty()) {
                 statusLabel.setText("Preencha todos os campos obrigatórios.");
-                this.registroServico.registrarEventoDoSistema(LogEventosMIDs.CAD_DADOS_INVALIDOS_GUI, "motivo", "campos_obrigatorios_vazios");
                 return;
             }
             if (!senha.equals(confirmarSenha)) {
                 statusLabel.setText("As senhas não coincidem.");
-                this.registroServico.registrarEventoDoSistema(LogEventosMIDs.CAD_DADOS_INVALIDOS_GUI, "email_tentativa", email, "motivo", "senhas_nao_coincidem");
                 return;
             }
             
@@ -166,7 +162,6 @@ public class CadastroUsuarioPanel extends JPanel {
         });
 
         voltarLoginButton.addActionListener((ActionEvent e) -> {
-            this.registroServico.registrarEventoDoSistema(LogEventosMIDs.CAD_BOTAO_VOLTAR_LOGIN_PRESSIONADO_GUI);
             onGoToLogin();
         });
     }

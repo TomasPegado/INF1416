@@ -37,6 +37,16 @@ public class CofreDigitalApp {
         totpServico = new TotpServico();
         usuarioServico = new UsuarioServico(totpServico, registroServico);
 
+        // Log de sistema iniciado
+        registroServico.registrarEventoDoSistema(br.com.cofredigital.log.LogEventosMIDs.SISTEMA_INICIADO);
+
+        // Log de sistema encerrado via shutdown hook
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            if (registroServico != null) {
+                registroServico.registrarEventoDoSistema(br.com.cofredigital.log.LogEventosMIDs.SISTEMA_ENCERRADO);
+            }
+        }));
+
         // // registroServico.registrarEventoDoSistema(br.com.cofredigital.log.LogEventosMIDs.PARTIDA_SISTEMA, null);
         System.out.println("Serviços de log, TOTP e usuário inicializados.");
 
