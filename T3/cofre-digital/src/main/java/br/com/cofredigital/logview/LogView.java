@@ -20,34 +20,9 @@ import java.util.List;
 
 public class LogView {
     public static void main(String[] args) {
-        Scanner scanner = new Scanner(System.in);
-        System.out.println("=== LogView - Visualização de Registros do Sistema ===");
-        System.out.print("Email do administrador: ");
-        String email = scanner.nextLine().trim();
-        System.out.print("Senha do administrador: ");
-        String fraseSecreta = scanner.nextLine();
-
+        // Removed authentication prompts and logic
         try {
             UsuarioDAO usuarioDAO = new UsuarioDAOImpl();
-            Optional<Usuario> usuarioOpt = usuarioDAO.buscarPorEmail(email);
-            if (usuarioOpt.isEmpty()) {
-                System.out.println("Usuário não encontrado.");
-                return;
-            }
-            Usuario usuario = usuarioOpt.get();
-            // Verificar se é admin (ajustar conforme campo do modelo)
-            if (usuario.getGrupo() == null || 
-                !(usuario.getGrupo().equalsIgnoreCase("admin") || usuario.getGrupo().equalsIgnoreCase("administrador"))) {
-                System.out.println("Acesso negado: apenas administradores podem visualizar os logs.");
-                return;
-            }
-            // Validar frase secreta (usando PasswordUtil)
-            if (!PasswordUtil.checkPassword(fraseSecreta, usuario.getSenha())) {
-                System.out.println("Frase secreta incorreta.");
-                return;
-            }
-            System.out.println("Autenticação bem-sucedida! Listando registros do sistema...\n");
-
             RegistroDAO registroDAO = new RegistroDAOImpl();
             MensagemDAO mensagemDAO = new MensagemDAOImpl();
             // Buscar e exibir todos os registros ordenados por data/hora
