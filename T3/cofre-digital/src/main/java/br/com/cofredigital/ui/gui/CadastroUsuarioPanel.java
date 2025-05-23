@@ -28,10 +28,12 @@ public class CadastroUsuarioPanel extends JPanel {
     private final JLabel statusLabel = new JLabel(" ");
     private final UsuarioServico usuarioServico;
     private final RegistroServico registroServico;
+    private final Long adminUid;
 
-    public CadastroUsuarioPanel(UsuarioServico usuarioServico, RegistroServico registroServico) {
+    public CadastroUsuarioPanel(UsuarioServico usuarioServico, RegistroServico registroServico, Long adminUid) {
         this.usuarioServico = usuarioServico;
         this.registroServico = registroServico;
+        this.adminUid = adminUid;
 
         setLayout(new GridBagLayout());
         GridBagConstraints gbc = new GridBagConstraints();
@@ -112,6 +114,8 @@ public class CadastroUsuarioPanel extends JPanel {
             String caminhoCertificado = getCaminhoCertificado();
             String caminhoChavePrivada = getCaminhoChavePrivada();
             String fraseSecreta = getFraseSecreta();
+
+            
 
             if (nome.isEmpty() || email.isEmpty() || 
                 (this.isVisible() && !isModoAdminInicial() && (caminhoCertificado.isEmpty() || caminhoChavePrivada.isEmpty() || fraseSecreta.isEmpty())) ||

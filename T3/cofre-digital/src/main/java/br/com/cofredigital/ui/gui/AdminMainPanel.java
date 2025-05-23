@@ -4,6 +4,8 @@ package br.com.cofredigital.ui.gui;
 
 import br.com.cofredigital.autenticacao.modelo.Usuario;
 import br.com.cofredigital.autenticacao.servico.UsuarioServico;
+import br.com.cofredigital.log.servico.RegistroServico;
+import br.com.cofredigital.log.LogEventosMIDs;
 
 import javax.swing.*;
 import java.awt.*;
@@ -15,6 +17,7 @@ public class AdminMainPanel extends JPanel {
     private MainFrame mainFrame;
     private UsuarioServico usuarioServico;
     private Usuario adminLogado;
+    private RegistroServico registroServico;
 
     // Cabeçalho
     private JLabel lblLoginValue;
@@ -29,9 +32,10 @@ public class AdminMainPanel extends JPanel {
     private JButton btnConsultarPasta;
     private JButton btnSair;
 
-    public AdminMainPanel(MainFrame mainFrame, UsuarioServico usuarioServico) {
+    public AdminMainPanel(MainFrame mainFrame, UsuarioServico usuarioServico, RegistroServico registroServico) {
         this.mainFrame = mainFrame;
         this.usuarioServico = usuarioServico;
+        this.registroServico = registroServico;
         initComponents();
     }
 
@@ -75,6 +79,12 @@ public class AdminMainPanel extends JPanel {
             public void actionPerformed(ActionEvent e) {
                 // Ação para Cadastrar Usuário
                 if (adminLogado != null) {
+                    registroServico.registrarEventoDoUsuario(
+                        LogEventosMIDs.OPCAO1_MENU_PRINCIPAL,
+                        adminLogado.getId(),
+                        "email_usuario", adminLogado.getEmail(),
+                        "grupo_usuario", adminLogado.getGrupo()
+                    );
                     mainFrame.showUserRegistrationPanel(adminLogado);
                 } else {
                     JOptionPane.showMessageDialog(AdminMainPanel.this, "Erro: Administrador não logado.", "Erro", JOptionPane.ERROR_MESSAGE);
@@ -87,6 +97,12 @@ public class AdminMainPanel extends JPanel {
             public void actionPerformed(ActionEvent e) {
                 // Ação para Consultar Pasta
                 if (adminLogado != null) {
+                    registroServico.registrarEventoDoUsuario(
+                        LogEventosMIDs.OPCAO2_MENU_PRINCIPAL,
+                        adminLogado.getId(),
+                        "email_usuario", adminLogado.getEmail(),
+                        "grupo_usuario", adminLogado.getGrupo()
+                    );
                     mainFrame.showConsultarArquivosSecretosPanel();
                 } else {
                     JOptionPane.showMessageDialog(AdminMainPanel.this, "Erro: Administrador não logado.", "Erro", JOptionPane.ERROR_MESSAGE);
@@ -99,6 +115,12 @@ public class AdminMainPanel extends JPanel {
             public void actionPerformed(ActionEvent e) {
                 // Ação para Sair
                 if (adminLogado != null) {
+                    registroServico.registrarEventoDoUsuario(
+                        LogEventosMIDs.OPCAO3_MENU_PRINCIPAL,
+                        adminLogado.getId(),
+                        "email_usuario", adminLogado.getEmail(),
+                        "grupo_usuario", adminLogado.getGrupo()
+                    );
                     mainFrame.showLogoutExitPanel(adminLogado);
                 } else {
                     // Fallback, embora o admin deva estar logado para ver este painel

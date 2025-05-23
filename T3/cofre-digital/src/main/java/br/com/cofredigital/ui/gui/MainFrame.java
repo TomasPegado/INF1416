@@ -101,7 +101,8 @@ public class MainFrame extends JFrame {
 
 
         // Painel de Cadastro - passar registroServico
-        CadastroUsuarioPanel cadastroPanel = new CadastroUsuarioPanel(usuarioServico, registroServico) {
+        Long adminUid = (usuarioEmLogin != null) ? usuarioEmLogin.getId() : null;
+        CadastroUsuarioPanel cadastroPanel = new CadastroUsuarioPanel(usuarioServico, registroServico, adminUid) {
             @Override
             protected void onCadastroSuccess() {
                 MainFrame.this.usuarioEmCadastro = usuarioServico.buscarPorEmail(getEmail());
@@ -158,7 +159,7 @@ public class MainFrame extends JFrame {
         validateAdminPassphrasePanel = new ValidateAdminPassphrasePanel(usuarioServico, registroServico, this);
         validateAdminPassphrasePanel.setName(VALIDATE_ADMIN_PASSPHRASE_PANEL);
 
-        adminMainPanel = new AdminMainPanel(this, usuarioServico); // Instanciação
+        adminMainPanel = new AdminMainPanel(this, usuarioServico, registroServico); // Instanciação
         adminMainPanel.setName(ADMIN_MAIN_PANEL);
 
         userRegistrationAdminPanel = new UserRegistrationAdminPanel(this, usuarioServico); // Instanciação
@@ -389,6 +390,12 @@ public class MainFrame extends JFrame {
     public void showUserRegistrationPanel(Usuario adminLogado) {
         if (userRegistrationAdminPanel != null) {
             userRegistrationAdminPanel.prepareForm(adminLogado);
+            registroServico.registrarEventoDoUsuario(
+                        LogEventosMIDs.TELA_CADASTRO_APRESENTADA,
+                        adminLogado.getId(),
+                        "email_usuario", adminLogado.getEmail(),
+                        "grupo_usuario", adminLogado.getGrupo()
+                    );
             showScreen(USER_REGISTRATION_ADMIN_PANEL);
         } else {
             // Fallback ou log de erro se o painel não for inicializado

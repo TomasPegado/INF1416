@@ -912,6 +912,12 @@ public class UsuarioServico {
         // //     "adminUid", String.valueOf(adminUid)
         // // );
         System.out.println("[UsuarioServico] Usuário " + usuarioSalvo.getEmail() + " cadastrado com sucesso. UID: " + usuarioSalvo.getId() + ". Chave TOTP (plana - para debug): " + chaveSecretaTotpBase32);
+        // Logar o evento de botão pressionado
+        registroServico.registrarEventoDoUsuario(
+            LogEventosMIDs.BOTAO_CADASTRAR_PRESSIONADO,
+            adminUid,
+            "login_name", emailExtraidoCert
+        );
         return new CadastroUsuarioResult(usuarioSalvo, chaveSecretaTotpBase32);
     }
 
