@@ -780,8 +780,13 @@ public class UsuarioServico {
         }
 
         if (StringUtil.isAnyEmpty(senha) || gid <= 0) {
-            // // registroServico.registrarEventoDoSistema(LogEventosMIDs.CAD_USUARIO_DADOS_INVALIDOS,
-            // //     "motivo", "Senha e GID válidos são obrigatórios.", "adminUid", String.valueOf(adminUid));
+            if (registroServico != null) {
+                registroServico.registrarEventoDoUsuario(
+                    LogEventosMIDs.CAD_SENHA_INVALIDA,
+                    adminUid,
+                    "login_name", emailInput != null ? emailInput : "(desconhecido)"
+                );
+            }
             throw new IllegalArgumentException("Senha e GID válidos são obrigatórios.");
         }
 
@@ -797,7 +802,14 @@ public class UsuarioServico {
             System.out.println("[UsuarioServico.cadastrarNovoUsuario] Processando certificado fornecido: " + caminhoCertificado);
             certificate = CertificateUtil.loadCertificateFromFile(caminhoCertificado);
             if (certificate == null) {
-                // // registroServico.registrarEventoDoSistema(LogEventosMIDs.CAD_CERTIFICADO_PATH_INVALIDO, "adminUid", String.valueOf(adminUid), "caminho", caminhoCertificado);
+                if (registroServico != null) {
+                    registroServico.registrarEventoDoUsuario(
+                        LogEventosMIDs.CAD_CERTIFICADO_PATH_INVALIDO,
+                        adminUid,
+                        "login_name", emailInput != null ? emailInput : "(desconhecido)",
+                        "motivo", "Email não pôde ser extraído do certificado."
+                    );
+                }
                 throw new IllegalArgumentException("Falha ao carregar o certificado do arquivo: " + caminhoCertificado);
             }
 
@@ -805,7 +817,14 @@ public class UsuarioServico {
             emailExtraidoCert = CertificateUtil.extractEmailFromCertificate(certificate);
 
             if (StringUtil.isAnyEmpty(emailExtraidoCert)) {
-                // // registroServico.registrarEventoDoSistema(LogEventosMIDs.CAD_USUARIO_DADOS_INVALIDOS, "adminUid", String.valueOf(adminUid), "motivo", "Email não pôde ser extraído do certificado.");
+                if (registroServico != null) {
+                    registroServico.registrarEventoDoUsuario(
+                        LogEventosMIDs.CAD_CERTIFICADO_PATH_INVALIDO,
+                        adminUid,
+                        "login_name", emailInput != null ? emailInput : "(desconhecido)",
+                        "motivo", "Email não pôde ser extraído do certificado."
+                    );
+                }
                 throw new IllegalArgumentException("Não foi possível extrair o e-mail do certificado fornecido.");
             }
             if (StringUtil.isAnyEmpty(nomeExtraidoCert)) {
@@ -814,12 +833,26 @@ public class UsuarioServico {
             certificadoPemString = CertificateUtil.convertToPem(certificate);
 
         } catch (CertificateException | IOException e) {
-            // // registroServico.registrarEventoDoSistema(LogEventosMIDs.CAD_CERTIFICADO_PATH_INVALIDO, "adminUid", String.valueOf(adminUid), "caminho", caminhoCertificado, "erro", e.getMessage());
+            if (registroServico != null) {
+                registroServico.registrarEventoDoUsuario(
+                    LogEventosMIDs.CAD_CERTIFICADO_PATH_INVALIDO,
+                    adminUid,
+                    "login_name", emailInput != null ? emailInput : "(desconhecido)",
+                    "erro", e.getMessage()
+                );
+            }
             throw new Exception("Erro ao processar arquivo de certificado: " + e.getMessage(), e);
         } catch (IllegalArgumentException iae) { // Captura as exceções de validação de nome/email do cert
             throw iae; 
         } catch (Exception e) { // Outras exceções genéricas ao processar certificado
-             // // registroServico.registrarEventoDoSistema(LogEventosMIDs.CAD_CERTIFICADO_PATH_INVALIDO, "adminUid", String.valueOf(adminUid), "caminho", caminhoCertificado, "erro_inesperado", e.getMessage());
+            if (registroServico != null) {
+                registroServico.registrarEventoDoUsuario(
+                    LogEventosMIDs.CAD_CERTIFICADO_PATH_INVALIDO,
+                    adminUid,
+                    "login_name", emailInput != null ? emailInput : "(desconhecido)",
+                    "erro_inesperado", e.getMessage()
+                );
+            }
             throw new Exception("Erro inesperado ao processar certificado: " + e.getMessage(), e);
         }
         
@@ -842,13 +875,26 @@ public class UsuarioServico {
             // System.out.println("[UsuarioServico] Processando chave privada: " + caminhoChavePrivada); // Log redundante, já temos o caminho
             // Validar e carregar chave privada
             if (!validarChavePrivadaComFrase(caminhoChavePrivada, fraseSecretaChave, certificate)) {
-                 // // registroServico.registrarEventoDoSistema(LogEventosMIDs.CAD_CHAVE_PRIVADA_ASSINATURA_INVALIDA, "email", emailExtraidoCert, "path_chave", caminhoChavePrivada);
-                 throw new SecurityException("A chave privada fornecida não pôde ser validada com o certificado ou a frase secreta está incorreta.");
+                if (registroServico != null) {
+                    registroServico.registrarEventoDoUsuario(
+                        LogEventosMIDs.CAD_CHAVE_PRIVADA_ASSINATURA_INVALIDA,
+                        adminUid,
+                        "login_name", emailExtraidoCert
+                    );
+                }
+                throw new SecurityException("A chave privada fornecida não pôde ser validada com o certificado ou a frase secreta está incorreta.");
             }
             // Se chegou aqui, a chave é válida com a frase e corresponde ao certificado.
             // Agora, carregue a chave privada para criptografá-la para armazenamento.
             PrivateKey pkToEncrypt = PrivateKeyUtil.loadEncryptedPKCS8PrivateKey(caminhoChavePrivada, fraseSecretaChave);
-             if (pkToEncrypt == null) { // Dupla checagem, embora validarChavePrivadaComFrase já faça isso.
+            if (pkToEncrypt == null) { // Dupla checagem, embora validarChavePrivadaComFrase já faça isso.
+                if (registroServico != null) {
+                    registroServico.registrarEventoDoUsuario(
+                        LogEventosMIDs.CAD_CHAVE_PRIVADA_FRASE_SECRETA_INVALIDA,
+                        adminUid,
+                        "login_name", emailExtraidoCert
+                    );
+                }
                 throw new SecurityException("Falha ao recarregar a chave privada para criptografia, mesmo após validação inicial.");
             }
 
@@ -863,11 +909,27 @@ public class UsuarioServico {
             chavePrivadaBytesParaChaveiro = encryptedInfo.getEncoded(); // Este é o formato binário criptografado para o BD
 
         } catch (SecurityException se) {
+            if (registroServico != null) {
+                registroServico.registrarEventoDoUsuario(
+                    LogEventosMIDs.CAD_CHAVE_PRIVADA_PATH_INVALIDO,
+                    adminUid,
+                    "login_name", emailExtraidoCert,
+                    "erro_proc_chave", se.getMessage()
+                );
+            }
             throw se; // Relança exceções de segurança já logadas ou específicas
-        } catch (Exception e) {
-            // // registroServico.registrarEventoDoSistema(LogEventosMIDs.CAD_CHAVE_PRIVADA_PATH_INVALIDO, "email", emailExtraidoCert, "path_chave", caminhoChavePrivada, "erro_proc_chave", e.getMessage());
-            throw new Exception("Erro ao processar ou validar a chave privada: " + e.getMessage(), e);
-        }
+        } 
+        // catch (Exception e) {
+        //     if (registroServico != null) {
+        //         registroServico.registrarEventoDoUsuario(
+        //             LogEventosMIDs.CAD_CHAVE_PRIVADA_PATH_INVALIDO,
+        //             adminUid,
+        //             "login_name", emailExtraidoCert,
+        //             "erro_proc_chave", e.getMessage()
+        //         );
+        //     }
+        //     throw new Exception("Erro ao processar ou validar a chave privada: " + e.getMessage(), e);
+        // }
         
         String chaveSecretaTotpBase32 = totpServico.gerarChaveSecreta();
         String hashSenha = PasswordUtil.hashPassword(senha);

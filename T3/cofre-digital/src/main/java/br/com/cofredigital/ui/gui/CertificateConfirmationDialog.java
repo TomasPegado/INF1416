@@ -7,13 +7,19 @@ import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.util.Map;
+import br.com.cofredigital.log.servico.RegistroServico;
+import br.com.cofredigital.log.LogEventosMIDs;
 
 public class CertificateConfirmationDialog extends JDialog {
 
     private boolean confirmado = false;
+    private final RegistroServico registroServico;
+    private final Long adminUid;
 
-    public CertificateConfirmationDialog(Frame owner, String title, Map<String, String> certificateData) {
+    public CertificateConfirmationDialog(Frame owner, String title, Map<String, String> certificateData, RegistroServico registroServico, Long adminUid) {
         super(owner, title, true); // true para modal
+        this.registroServico = registroServico;
+        this.adminUid = adminUid;
         initComponents(certificateData);
         pack();
         setLocationRelativeTo(owner);
@@ -83,6 +89,14 @@ public class CertificateConfirmationDialog extends JDialog {
             @Override
             public void actionPerformed(ActionEvent e) {
                 confirmado = true;
+                if (registroServico != null) {
+                    String email = data.getOrDefault("E-mail", "(desconhecido)");
+                    registroServico.registrarEventoDoUsuario(
+                        LogEventosMIDs.CAD_CONFIRMACAO_DADOS_ACEITA,
+                        adminUid,
+                        "login_name", email
+                    );
+                }
                 dispose();
             }
         });
@@ -91,6 +105,14 @@ public class CertificateConfirmationDialog extends JDialog {
             @Override
             public void actionPerformed(ActionEvent e) {
                 confirmado = false;
+                if (registroServico != null) {
+                    String email = data.getOrDefault("E-mail", "(desconhecido)");
+                    registroServico.registrarEventoDoUsuario(
+                        LogEventosMIDs.CAD_CONFIRMACAO_DADOS_REJEITADA,
+                        adminUid,
+                        "login_name", email
+                    );
+                }
                 dispose();
             }
         });

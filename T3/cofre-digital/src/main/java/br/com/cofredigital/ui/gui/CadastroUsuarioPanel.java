@@ -166,6 +166,7 @@ public class CadastroUsuarioPanel extends JPanel {
         });
 
         voltarLoginButton.addActionListener((ActionEvent e) -> {
+            
             onGoToLogin();
         });
     }

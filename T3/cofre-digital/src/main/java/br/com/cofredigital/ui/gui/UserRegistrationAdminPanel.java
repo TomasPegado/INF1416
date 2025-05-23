@@ -8,6 +8,7 @@ import br.com.cofredigital.persistencia.dao.GrupoDAO;
 import br.com.cofredigital.persistencia.dao.GrupoDAOImpl;
 import br.com.cofredigital.persistencia.modelo.Grupo;
 import br.com.cofredigital.log.LogEventosMIDs; // Para logging de GUI
+import br.com.cofredigital.log.servico.RegistroServico;
 
 import javax.swing.*;
 import java.awt.*;
@@ -174,6 +175,15 @@ public class UserRegistrationAdminPanel extends JPanel {
         btnVoltar.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
+                RegistroServico registroServico = mainFrame.getRegistroServico();
+                if (registroServico != null && adminOperador != null) {
+                    String email = lblAdminLoginValue.getText();
+                    registroServico.registrarEventoDoUsuario(
+                        LogEventosMIDs.CAD_BOTAO_VOLTAR_MENU_PRINCIPAL,
+                        adminOperador.getId(),
+                        "login_name", email.isEmpty() ? "(desconhecido)" : email
+                    );
+                }
                 mainFrame.showScreen(MainFrame.ADMIN_MAIN_PANEL);
             }
         });
@@ -278,7 +288,13 @@ public class UserRegistrationAdminPanel extends JPanel {
         }
 
         // Exibir diálogo de confirmação
-        CertificateConfirmationDialog confirmationDialog = new CertificateConfirmationDialog(mainFrame, "Confirmar Dados do Certificado para Cadastro", certificateData);
+        CertificateConfirmationDialog confirmationDialog = new CertificateConfirmationDialog(
+            mainFrame,
+            "Confirmar Dados do Certificado para Cadastro",
+            certificateData,
+            mainFrame.getRegistroServico(),
+            adminOperador != null ? adminOperador.getId() : null
+        );
         confirmationDialog.setVisible(true);
 
         if (!confirmationDialog.isConfirmado()) {
